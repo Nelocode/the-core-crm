@@ -97,7 +97,7 @@
 
 .core-pulse {
   animation: core-pulse 15s ease-in-out infinite;
-  background: radial-gradient(circle at center, rgba(249, 17, 23, 0.15) 0%, transparent 70%);
+  background: radial-gradient(circle at center, rgba(212, 119, 44, 0.25) 0%, transparent 70%);
 }
 
 /* Custom scrollbar */
