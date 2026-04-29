@@ -846,7 +846,7 @@ const ContactModal = ({
 
     try {
       // Create a canvas to resize the image before sending to n8n
-      const optimizeImage = (file: File): Promise<string> => {
+      const optimizeImage = (file: File): Promise<Blob> => {
         return new Promise((resolve, reject) => {
           const img = new Image();
           const objectUrl = URL.createObjectURL(file);
@@ -877,7 +877,10 @@ const ContactModal = ({
             // Cleanup memory immediately
             URL.revokeObjectURL(objectUrl);
             
-            resolve(canvas.toDataURL('image/jpeg', 0.7));
+            canvas.toBlob((blob) => {
+              if (blob) resolve(blob as any);
+              else reject(new Error('Canvas toBlob failed'));
+            }, 'image/jpeg', 0.8);
           };
           img.onerror = (err) => {
             URL.revokeObjectURL(objectUrl);
@@ -895,8 +898,9 @@ const ContactModal = ({
         }
       }, 15000);
 
-      const base64 = await optimizeImage(file);
-      const result = await n8nService.scanBusinessCard(base64);
+      const blob = await optimizeImage(file);
+      // We send the blob directly to our service
+      const result = await n8nService.scanBusinessCard(blob as any);
       
       clearTimeout(watchdog);
       

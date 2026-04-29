@@ -32,11 +32,20 @@ export const n8nService = {
     }
 
     try {
-      const base64Data = base64Image.split(',')[1] || base64Image;
+      const formData = new FormData();
+      // If it's a base64 string from our optimizer, convert back to blob
+      if (base64Image.startsWith('data:')) {
+        const res = await fetch(base64Image);
+        const blob = await res.blob();
+        formData.append('image', blob, 'card.jpg');
+      } else {
+        formData.append('image', base64Image);
+      }
+
       const response = await fetch(SCAN_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64Data })
+        body: formData
+        // Note: browser sets the correct Content-Type with boundary for FormData
       });
       
       if (!response.ok) throw new Error('n8n scan request failed');
