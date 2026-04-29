@@ -19,8 +19,9 @@ export interface InvestigateResult {
   relationshipScore?: number;
 }
 
-const SCAN_URL = import.meta.env.VITE_N8N_SCAN_CARD_URL;
-const INVESTIGATE_URL = import.meta.env.VITE_N8N_INVESTIGATE_URL;
+const ENGINE_URL = import.meta.env.VITE_CORE_ENGINE_URL || 'https://automatizaciones-the-core-engine.vz27dz.easypanel.host';
+const SCAN_URL = `${ENGINE_URL}/api/ocr/scan`;
+const INVESTIGATE_URL = `${ENGINE_URL}/api/investigate`;
 
 export const n8nService = {
   /**
