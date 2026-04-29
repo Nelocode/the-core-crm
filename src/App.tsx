@@ -846,14 +846,15 @@ const ContactModal = ({
 
     try {
       // Create a canvas to resize the image before sending to n8n
-      // This prevents crashes on mobile due to high resolution images
       const optimizeImage = (file: File): Promise<string> => {
         return new Promise((resolve, reject) => {
           const img = new Image();
+          const objectUrl = URL.createObjectURL(file);
+          
           img.onload = () => {
             const canvas = document.createElement('canvas');
-            const MAX_WIDTH = 1200;
-            const MAX_HEIGHT = 1200;
+            const MAX_WIDTH = 800; // Ultra-light for fast transfer
+            const MAX_HEIGHT = 800;
             let width = img.width;
             let height = img.height;
 
@@ -872,15 +873,32 @@ const ContactModal = ({
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             ctx?.drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL('image/jpeg', 0.8));
+            
+            // Cleanup memory immediately
+            URL.revokeObjectURL(objectUrl);
+            
+            resolve(canvas.toDataURL('image/jpeg', 0.7));
           };
-          img.onerror = reject;
-          img.src = URL.createObjectURL(file);
+          img.onerror = (err) => {
+            URL.revokeObjectURL(objectUrl);
+            reject(err);
+          };
+          img.src = objectUrl;
         });
       };
 
+      // Watchdog: Force stop scanning after 15s if it hangs
+      const watchdog = setTimeout(() => {
+        if (isScanning) {
+          setIsScanning(false);
+          setScanError('La conexión con la IA ha tardado demasiado.');
+        }
+      }, 15000);
+
       const base64 = await optimizeImage(file);
       const result = await n8nService.scanBusinessCard(base64);
+      
+      clearTimeout(watchdog);
       
       if (!result.name && !result.email) {
         throw new Error('READ_FAILED');
