@@ -843,35 +843,71 @@ const ContactModal = ({
 
     setIsScanning(true);
     setScanError(null);
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const base64 = reader.result as string;
-      try {
-        const result = await n8nService.scanBusinessCard(base64);
-        
-        if (!result.name && !result.email) {
-          throw new Error('READ_FAILED');
-        }
 
-        setFormData(prev => ({
-          ...prev,
-          name: result.name || prev.name,
-          role: result.role || prev.role,
-          company: result.company || prev.company,
-          email: result.email || prev.email,
-          avatar: result.avatar || prev.avatar
-        }));
-        setActiveTab('prof');
-      } catch (error: any) {
-        console.error('Failed to scan card:', error);
-        setScanError(error.message === 'READ_FAILED' ? 'No se detectó información legible en la tarjeta.' : 'Error de conexión con la IA.');
-        // Clear error after 5s
-        setTimeout(() => setScanError(null), 5000);
-      } finally {
-        setIsScanning(false);
+    try {
+      // Create a canvas to resize the image before sending to n8n
+      // This prevents crashes on mobile due to high resolution images
+      const optimizeImage = (file: File): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const MAX_WIDTH = 1200;
+            const MAX_HEIGHT = 1200;
+            let width = img.width;
+            let height = img.height;
+
+            if (width > height) {
+              if (width > MAX_WIDTH) {
+                height *= MAX_WIDTH / width;
+                width = MAX_WIDTH;
+              }
+            } else {
+              if (height > MAX_HEIGHT) {
+                width *= MAX_HEIGHT / height;
+                height = MAX_HEIGHT;
+              }
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx?.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', 0.8));
+          };
+          img.onerror = reject;
+          img.src = URL.createObjectURL(file);
+        });
+      };
+
+      const base64 = await optimizeImage(file);
+      const result = await n8nService.scanBusinessCard(base64);
+      
+      if (!result.name && !result.email) {
+        throw new Error('READ_FAILED');
       }
-    };
-    reader.readAsDataURL(file);
+
+      setFormData(prev => ({
+        ...prev,
+        name: result.name || prev.name,
+        role: result.role || prev.role,
+        company: result.company || prev.company,
+        email: result.email || prev.email,
+        avatar: result.avatar || prev.avatar
+      }));
+      setActiveTab('prof');
+    } catch (error: any) {
+      console.error('Failed to process card:', error);
+      setScanError(
+        error.message === 'READ_FAILED' 
+          ? 'No se detectó información legible en la tarjeta.' 
+          : 'La imagen es demasiado pesada o hubo un error de conexión.'
+      );
+      setTimeout(() => setScanError(null), 5000);
+    } finally {
+      setIsScanning(false);
+      // Reset input value to allow selecting same file again
+      if (cardInputRef.current) cardInputRef.current.value = '';
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
