@@ -1,0 +1,141 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #f91117;
+  --color-secondary: #1a1a1a;
+  --color-background: #000000;
+  --color-foreground: #ffffff;
+  --color-card: #0a0a0a;
+  --color-muted: #141414;
+  --color-muted-foreground: #a1a1aa;
+  --color-copper: #d4772c;
+  --color-copper-light: #e8945a;
+  --color-copper-dark: #b87333;
+  --color-border: #27272a;
+  --color-success: #10b981;
+  --color-warning: #eab308;
+
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  
+  --radius-lg: 0.625rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+  --radius-3xl: 2.5rem;
+}
+
+@layer base {
+  :root {
+    --background: #000000;
+    --foreground: #ffffff;
+    --primary: #f91117;
+    --border: #27272a;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    margin: 0;
+  }
+}
+
+.glass {
+  background: rgba(8, 8, 8, 0.65);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 2.5rem;
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.input-core {
+  @apply w-full bg-white/[0.03] border border-white/10 rounded-2xl px-6 py-5 text-white focus:outline-none focus:border-primary/50 focus:bg-white/[0.08] transition-all duration-300 font-medium placeholder:text-zinc-700;
+}
+
+.label-executive {
+  @apply text-[9px] font-black uppercase tracking-[0.2em] text-zinc-600 ml-1 block font-mono;
+}
+
+.shadow-glow {
+  background: radial-gradient(circle at top left, rgba(212, 119, 44, 0.08), transparent 70%),
+              rgba(10, 10, 10, 0.7);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 48px -12px rgba(0, 0, 0, 0.5);
+  @apply rounded-2xl relative overflow-hidden;
+}
+
+.text-glow {
+  text-shadow: 0 0 20px rgba(212, 119, 44, 0.4),
+               0 0 40px rgba(212, 119, 44, 0.2);
+}
+
+.glow-red {
+  box-shadow: 0 0 25px rgba(249, 17, 23, 0.2),
+              0 0 60px rgba(249, 17, 23, 0.1);
+}
+
+.bg-grid {
+  background-image: 
+    linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+  background-size: 80px 80px;
+}
+
+.noise {
+  background-image: url("https://grainy-gradients.vercel.app/noise.svg");
+  filter: contrast(150%) brightness(1000%);
+  opacity: 0.03;
+  pointer-events: none;
+}
+
+@keyframes core-pulse {
+  0% { transform: scale(1); opacity: 0.3; }
+  50% { transform: scale(1.1); opacity: 0.5; }
+  100% { transform: scale(1); opacity: 0.3; }
+}
+
+.core-pulse {
+  animation: core-pulse 15s ease-in-out infinite;
+  background: radial-gradient(circle at center, rgba(249, 17, 23, 0.15) 0%, transparent 70%);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: black; }
+::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: #b87333; }
+
+/* Responsive Adjustments */
+@media (max-width: 1024px) {
+  .glass {
+    border-radius: 1.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-grid {
+    @apply flex flex-col gap-8;
+  }
+  
+  .premium-card {
+    @apply p-5;
+  }
+  
+  h2 { @apply text-3xl; }
+  h3 { @apply text-2xl; }
+}
+
+/* Touch targets */
+button, input, select {
+  @apply min-h-[44px];
+}
+
+/* Mobile Nav Styles */
+.mobile-nav-item {
+  @apply flex flex-col items-center gap-1 text-[10px] font-bold uppercase tracking-tighter;
+}
+
+.core-pulse-mobile {
+  background: radial-gradient(circle at center, rgba(249, 17, 23, 0.2) 0%, transparent 60%);
+}
