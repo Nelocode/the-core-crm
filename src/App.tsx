@@ -101,7 +101,7 @@ const Sidebar = ({ activeTab, setActiveTab, setIsAddModalOpen }: {
         <div className="hidden lg:block ml-2">
           <div className="flex flex-col">
             <h1 className="text-lg font-black tracking-[-0.05em] leading-none text-white">CORE<span className="text-primary text-[6px] align-top ml-0.5">TM</span></h1>
-            <span className="text-[8px] font-bold text-white/40 uppercase tracking-widest mt-0.5">v1.5.0 Engine</span>
+            <span className="text-[8px] font-bold text-white/40 uppercase tracking-widest mt-0.5">v1.5.1 Engine</span>
           </div>
           <p className="text-[8px] text-muted-foreground uppercase tracking-[0.3em] font-bold mt-1.5 opacity-60">{t('common.intelligenceCRM')}</p>
         </div>
