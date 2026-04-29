@@ -28,14 +28,7 @@ export const n8nService = {
    */
   async scanBusinessCard(base64Image: string): Promise<ScanCardResult> {
     if (!SCAN_URL) {
-      console.warn('n8n Scan URL not configured, returning simulation data.');
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      return {
-        name: 'Julian Vance (Simulated)',
-        role: 'Head of Operations',
-        company: 'Vance Logistics',
-        email: 'julian@vancelog.com'
-      };
+      throw new Error('CONFIG_MISSING');
     }
 
     try {

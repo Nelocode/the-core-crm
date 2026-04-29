@@ -754,6 +754,7 @@ const ContactModal = ({
   const [activeTab, setActiveTab] = useState<'prof' | 'intl' | 'int'>('prof');
   const [isInvestigating, setIsInvestigating] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -841,12 +842,17 @@ const ContactModal = ({
     if (!file) return;
 
     setIsScanning(true);
+    setScanError(null);
     const reader = new FileReader();
     reader.onload = async () => {
       const base64 = reader.result as string;
       try {
         const result = await n8nService.scanBusinessCard(base64);
         
+        if (!result.name && !result.email) {
+          throw new Error('READ_FAILED');
+        }
+
         setFormData(prev => ({
           ...prev,
           name: result.name || prev.name,
@@ -856,8 +862,11 @@ const ContactModal = ({
           avatar: result.avatar || prev.avatar
         }));
         setActiveTab('prof');
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to scan card:', error);
+        setScanError(error.message === 'READ_FAILED' ? 'No se detectó información legible en la tarjeta.' : 'Error de conexión con la IA.');
+        // Clear error after 5s
+        setTimeout(() => setScanError(null), 5000);
       } finally {
         setIsScanning(false);
       }
@@ -943,6 +952,22 @@ const ContactModal = ({
                 <p className="mt-8 text-xs font-black uppercase tracking-[0.5em] text-primary animate-pulse font-mono">
                   {isScanning ? 'Extrayendo Datos de Tarjeta...' : 'Deep Search AI: Active'}
                 </p>
+              </motion.div>
+            )}
+            {scanError && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 20 }}
+                className="absolute bottom-10 left-10 right-10 z-50 bg-red-500/90 backdrop-blur-md text-white p-4 rounded-2xl flex items-center gap-4 shadow-2xl border border-red-400/50"
+              >
+                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                  <AlertCircle size={20} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest">Error de Inteligencia</p>
+                  <p className="text-xs font-bold opacity-90">{scanError}</p>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
