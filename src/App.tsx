@@ -22,12 +22,13 @@ import {
   Trash2,
   Upload,
   Edit3,
-  CheckCircle
+  CheckCircle,
+  AlertCircle,
+  Camera
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, isToday } from 'date-fns';
 import { n8nService, type InvestigateResult } from './services/n8nService';
-import { Camera } from 'lucide-react';
 import { contacts, meetings, mockAIBriefings } from './data';
 import { translations } from './translations';
 import type { Language } from './translations';
@@ -520,9 +521,17 @@ const Dashboard = ({ onExpandContact, forceSelectedContactId, appContacts, setIs
               >
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <span className="text-primary text-xs font-bold mono">
-                      {isToday(new Date(meeting.startTime)) ? t('dashboard.today') : format(new Date(meeting.startTime), 'MMM d')}
-                    </span>
+                    <p className="text-[10px] text-zinc-500 font-black uppercase tracking-[0.2em] mono">
+                      {(() => {
+                        try {
+                          const date = new Date(meeting.startTime);
+                          if (isNaN(date.getTime())) return 'Invalid Date';
+                          return isToday(date) ? t('dashboard.today') : format(date, 'MMM d');
+                        } catch (e) {
+                          return 'Invalid Date';
+                        }
+                      })()}
+                    </p>
                     <h4 className="text-lg font-bold mt-1 text-zinc-300 group-hover:text-white transition-colors">{meeting.title}</h4>
                   </div>
                   <div className="text-right">
@@ -762,7 +771,6 @@ const ContactModal = ({
   const [scanError, setScanError] = useState<string | null>(null);
   const [investigateResults, setInvestigateResults] = useState<InvestigateResult | null>(null);
   const [cardImages, setCardImages] = useState<File[]>([]);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -1742,11 +1750,16 @@ export default function App() {
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [appContacts, setAppContacts] = useState<Contact[]>(() => {
-    const saved = localStorage.getItem('core_contacts');
-    return saved ? JSON.parse(saved) : contacts;
+    try {
+      const saved = localStorage.getItem('core_contacts');
+      return saved ? JSON.parse(saved) : contacts;
+    } catch (e) {
+      return contacts;
+    }
   });
   const [contactToEdit, setContactToEdit] = useState<Contact | null>(null);
   const [externalSelectedContactId, setExternalSelectedContactId] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Persistence
   useEffect(() => {
