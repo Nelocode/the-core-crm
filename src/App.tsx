@@ -458,7 +458,7 @@ const CommandPalette = ({
   );
 };
 
-const Dashboard = ({ onExpandContact, forceSelectedContactId, appContacts, setIsAddModalOpen }: { 
+const Dashboard = ({ onExpandContact, forceSelectedContactId, appContacts, setIsAddModalOpen, onEditContact }: { 
   onExpandContact: (c: Contact) => void,
   forceSelectedContactId?: string | null,
   appContacts: Contact[],
