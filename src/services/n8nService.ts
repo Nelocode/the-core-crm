@@ -93,5 +93,27 @@ export const n8nService = {
       console.error('Error investigating with n8n:', error);
       throw error;
     }
+  },
+
+  /**
+   * Transcribes audio blob using the Core Engine Whisper endpoint
+   */
+  async transcribeAudio(audioBlob: Blob): Promise<string> {
+    try {
+      const formData = new FormData();
+      formData.append('audio', audioBlob, 'recording.webm');
+
+      const response = await fetch(`${ENGINE_URL}/api/transcribe`, {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (!response.ok) throw new Error('Transcription failed');
+      const data = await response.json();
+      return data.text;
+    } catch (error) {
+      console.error('Error in transcription service:', error);
+      throw error;
+    }
   }
 };

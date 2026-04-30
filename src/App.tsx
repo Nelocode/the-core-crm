@@ -24,11 +24,15 @@ import {
   Edit3,
   CheckCircle,
   AlertCircle,
-  Camera
+  Camera,
+  Mic,
+  Check,
+  ArrowRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, isToday } from 'date-fns';
 import { n8nService, type InvestigateResult } from './services/n8nService';
+import { contactService } from './services/contactService';
 import { contacts, meetings, mockAIBriefings } from './data';
 import { translations } from './translations';
 import type { Language } from './translations';
@@ -753,6 +757,17 @@ const ContactAvatar = ({
   );
 };
 
+const CONTACT_CATEGORIES = [
+  { id: 'private_investor', label: 'Private Investor', group: 'Retail' },
+  { id: 'hnw', label: 'HNW', group: 'Retail' },
+  { id: 'vip', label: 'VIP', group: 'Retail' },
+  { id: 'broker_buy', label: 'Broker (Buy)', group: 'Instituciones' },
+  { id: 'broker_sell', label: 'Broker (Sell)', group: 'Instituciones' },
+  { id: 'family_office', label: 'Family Office', group: 'Funds' },
+  { id: 'hedge_fund', label: 'Hedge Fund', group: 'Funds' },
+  { id: 'long_term_fund', label: 'Long Term Fund', group: 'Funds' },
+];
+
 const ContactModal = ({ 
   isOpen, 
   onClose, 
@@ -766,11 +781,16 @@ const ContactModal = ({
 }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'prof' | 'intl' | 'int'>('prof');
+  const [quickAddStep, setQuickAddStep] = useState<'CAPTURE' | 'NOTES' | 'CATEGORY' | 'SUCCESS'>('CAPTURE');
   const [isInvestigating, setIsInvestigating] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
   const [investigateResults, setInvestigateResults] = useState<InvestigateResult | null>(null);
   const [cardImages, setCardImages] = useState<File[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -789,12 +809,14 @@ const ContactModal = ({
     personalGoal: '',
     relationshipScore: 50,
     captureMetadata: undefined as any, // will be typed as CaptureMetadata | undefined
-    intelligence: { icebreaker: '' }
+    intelligence: { icebreaker: '' },
+    category: ''
   });
 
   useEffect(() => {
     if (isOpen) {
       setActiveTab('prof');
+      if (!contact) setQuickAddStep('CAPTURE');
     }
     if (contact) {
       setFormData({
@@ -859,16 +881,58 @@ const ContactModal = ({
     }
   };
 
-  const handleCardScan = () => {
-    cardInputRef.current?.click();
-  };
-
   const handleCardFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     
-    setCardImages(prev => [...prev, file]);
+    const newImages = [...cardImages, file];
+    setCardImages(newImages);
     if (cardInputRef.current) cardInputRef.current.value = '';
+
+    // If it's a new contact, we start background processing after the first or second photo
+    // But for the frictionless flow, we'll let the user decide when to move to notes
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        setIsTranscribing(true);
+        try {
+          const text = await n8nService.transcribeAudio(audioBlob);
+          setFormData(prev => ({ ...prev, personalGoal: prev.personalGoal ? `${prev.personalGoal}\n${text}` : text }));
+        } catch (error) {
+          console.error('Transcription failed:', error);
+        } finally {
+          setIsTranscribing(false);
+        }
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (error) {
+      console.error('Microphone access denied:', error);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      // Stop all tracks to release the microphone
+      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+    }
   };
 
   const processCardImages = async () => {
@@ -1009,6 +1073,7 @@ const ContactModal = ({
       hobbies: formData.hobbies ? formData.hobbies.split(',').map(s => s.trim()) : [],
       interactions: contact?.interactions || [],
       notes: formData.personalGoal,
+      category: formData.category,
       intelligence: {
         lastInteractionType: 'email',
         keyInterests: formData.hobbies ? formData.hobbies.split(',').map(s => s.trim()) : [],
@@ -1035,484 +1100,458 @@ const ContactModal = ({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[250] flex items-center justify-center p-4 backdrop-blur-2xl bg-black/80"
+        className="fixed inset-0 z-[250] flex items-center justify-center p-0 lg:p-4 backdrop-blur-2xl bg-black/90"
         onClick={onClose}
       >
         <motion.div 
           initial={{ scale: 0.95, y: 30, opacity: 0 }}
           animate={{ scale: 1, y: 0, opacity: 1 }}
           exit={{ scale: 0.95, y: 30, opacity: 0 }}
-          className="w-full max-w-full lg:max-w-3xl bg-zinc-950 border border-white/5 rounded-[2rem] lg:rounded-[3rem] shadow-[0_0_150px_rgba(249,17,23,0.15)] overflow-x-hidden overflow-y-auto flex flex-col h-[90vh] lg:h-[700px] relative"
+          className="w-full h-full lg:h-[700px] lg:max-w-3xl bg-zinc-950 border-0 lg:border lg:border-white/5 lg:rounded-[3rem] shadow-[0_0_150px_rgba(249,17,23,0.15)] overflow-hidden flex flex-col relative"
           onClick={e => e.stopPropagation()}
         >
-          {/* Scanning Overlay */}
-          <AnimatePresence>
-            {(isScanning || isInvestigating) && (
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md"
-              >
-                <div className="relative w-64 h-64 lg:w-80 lg:h-80 border border-primary/20 rounded-2xl overflow-hidden">
+          {/* Close Button (Universal) */}
+          <button 
+            onClick={onClose} 
+            className="absolute top-6 right-6 z-[160] w-12 h-12 rounded-full bg-white/5 flex items-center justify-center hover:bg-primary transition-all group"
+          >
+            <X size={24} className="text-zinc-500 group-hover:text-white" />
+          </button>
+
+          {/* Quick Add Flow for New Contacts */}
+          {!contact ? (
+            <div className="flex-1 flex flex-col h-full">
+              <AnimatePresence mode="wait">
+                {/* STEP 1: CAPTURE PHOTO */}
+                {quickAddStep === 'CAPTURE' && (
                   <motion.div 
-                    animate={{ y: [0, 320] }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                    className="absolute top-0 left-0 right-0 h-1 bg-primary glow-red z-10"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-b from-primary/10 to-transparent opacity-50" />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <BrainCircuit size={80} className="text-primary animate-pulse" />
-                  </div>
-                </div>
-                <p className="mt-8 text-xs font-black uppercase tracking-[0.5em] text-primary animate-pulse font-mono">
-                  {isScanning ? 'Extrayendo Datos de Tarjeta...' : 'Deep Search AI: Active'}
-                </p>
-              </motion.div>
-            )}
-            {scanError && (
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 20 }}
-                className="absolute bottom-10 left-10 right-10 z-50 bg-red-500/90 backdrop-blur-md text-white p-4 rounded-2xl flex items-center gap-4 shadow-2xl border border-red-400/50"
-              >
-                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-                  <AlertCircle size={20} />
-                </div>
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest">Error de Inteligencia</p>
-                  <p className="text-xs font-bold opacity-90">{scanError}</p>
-                </div>
-                  </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Two-Sided Scan Staging Overlay */}
-          <AnimatePresence>
-            {cardImages.length > 0 && !isScanning && !investigateResults && (
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="absolute inset-0 z-[110] bg-zinc-950/98 backdrop-blur-3xl flex flex-col p-6 lg:p-10 justify-center items-center text-center"
-              >
-                <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center text-primary mb-8 animate-pulse shadow-glow">
-                  <Camera size={40} />
-                </div>
-                <h3 className="text-3xl font-black text-white uppercase tracking-tighter mb-2">
-                  {cardImages.length === 1 ? 'Cara Frontal Lista' : 'Ambas Caras Listas'}
-                </h3>
-                <p className="text-sm text-zinc-400 mb-12 max-w-sm">
-                  {cardImages.length === 1 
-                    ? '¿La tarjeta tiene información importante en el reverso (ej. página web, teléfono)?' 
-                    : 'Imágenes capturadas. Listas para la unidad de inteligencia.'}
-                </p>
-                
-                <div className="flex flex-col gap-4 w-full max-w-sm">
-                  {cardImages.length === 1 && (
-                    <button 
-                      onClick={handleCardScan}
-                      className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl text-white font-black uppercase tracking-widest hover:bg-white/10 transition-all flex justify-center items-center gap-2"
-                    >
-                      <Camera size={18} />
-                      Añadir Reverso
-                    </button>
-                  )}
-                  <button 
-                    onClick={processCardImages}
-                    className="w-full py-4 bg-primary text-white rounded-2xl font-black uppercase tracking-widest shadow-glow hover:scale-[1.02] transition-all"
+                    key="step-capture"
+                    initial={{ opacity: 0, x: 50 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -50 }}
+                    className="flex-1 flex flex-col p-8 lg:p-12"
                   >
-                    Extraer Datos Ahora
-                  </button>
-                  <button 
-                    onClick={() => setCardImages([])}
-                    className="w-full py-4 text-zinc-500 font-bold uppercase tracking-widest hover:text-white transition-all text-xs"
-                  >
-                    Cancelar
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                    <div className="mb-12">
+                      <h3 className="text-4xl lg:text-5xl font-black tracking-tighter text-white uppercase mb-2">Capturar Tarjeta</h3>
+                      <p className="text-xs text-primary font-black uppercase tracking-[0.3em] mono">Unidad de Inteligencia</p>
+                    </div>
 
-          {/* Investigation Audit Overlay */}
-          <AnimatePresence>
-            {investigateResults && (
-              <motion.div 
-                initial={{ opacity: 0, y: 50 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 50 }}
-                className="absolute inset-0 z-[100] bg-zinc-950/95 backdrop-blur-3xl flex flex-col p-6 lg:p-10"
-              >
-                <div className="flex justify-between items-center mb-8">
-                  <div>
-                    <h3 className="text-2xl lg:text-3xl font-black tracking-tighter text-white uppercase flex items-center gap-3">
-                      <Sparkles className="text-primary" /> Auditoría Humana
-                    </h3>
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">Selecciona los datos encontrados para guardar</p>
-                  </div>
-                  <button onClick={() => setInvestigateResults(null)} className="p-2 bg-white/5 rounded-full hover:bg-white/10 transition-all">
-                    <X size={20} />
-                  </button>
-                </div>
+                    <div className="flex-1 flex flex-col gap-6 justify-center">
+                      <div className="grid grid-cols-2 gap-4 h-64 lg:h-80">
+                        {[0, 1].map((idx) => (
+                          <button 
+                            key={idx}
+                            onClick={() => cardInputRef.current?.click()}
+                            className="relative group overflow-hidden rounded-[2rem] border-2 border-dashed border-white/10 hover:border-primary/50 transition-all flex flex-col items-center justify-center bg-white/[0.02]"
+                          >
+                            {cardImages[idx] ? (
+                              <img 
+                                src={URL.createObjectURL(cardImages[idx])} 
+                                className="absolute inset-0 w-full h-full object-cover grayscale-[0.5] group-hover:grayscale-0 transition-all" 
+                                alt={`Card side ${idx}`}
+                              />
+                            ) : (
+                              <div className="flex flex-col items-center gap-4">
+                                <Camera size={32} className="text-zinc-700 group-hover:text-primary transition-colors" />
+                                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600">
+                                  {idx === 0 ? 'Frente' : 'Reverso (Opcional)'}
+                                </span>
+                              </div>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                      
+                      <input type="file" ref={cardInputRef} className="hidden" accept="image/*" capture="environment" onChange={handleCardFileChange} />
+                    </div>
 
-                <div className="flex-1 overflow-y-auto no-scrollbar space-y-4">
-                  {['avatar', 'role', 'location', 'notes', 'icebreaker'].map((field) => {
-                    const val = investigateResults[field as keyof typeof investigateResults];
-                    if (!val) return null;
-                    return (
-                      <div key={field} className="bg-white/5 border border-white/10 p-4 rounded-2xl flex items-center justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[10px] uppercase text-primary font-black tracking-widest mb-1">
-                            {field === 'notes' ? 'Bio / Notas' : field === 'icebreaker' ? 'Rompehielos Estratégico' : field}
-                          </p>
-                          <p className="text-sm text-white truncate">{typeof val === 'string' ? val : Array.isArray(val) ? val.join(', ') : ''}</p>
-                        </div>
-                        <button 
-                          type="button"
-                          onClick={() => {
-                            if (field === 'icebreaker') {
-                              setFormData(prev => ({ ...prev, intelligence: { ...prev.intelligence, icebreaker: val as string } }));
-                            } else {
-                              setFormData(prev => ({ ...prev, [field === 'notes' ? 'personalGoal' : field]: val }));
-                            }
-                            setInvestigateResults(prev => ({ ...prev, [field]: undefined }) as any);
-                          }}
-                          className="px-4 py-2 bg-primary/20 text-primary border border-primary/30 rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-primary hover:text-white transition-all whitespace-nowrap"
-                        >
-                          Aprobar
-                        </button>
-                      </div>
-                    );
-                  })}
-                  
-                  {investigateResults.hobbies && investigateResults.hobbies.length > 0 && (
-                    <div className="bg-white/5 border border-white/10 p-4 rounded-2xl flex items-center justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[10px] uppercase text-primary font-black tracking-widest mb-1">Hobbies / Intereses</p>
-                        <p className="text-sm text-white truncate">{investigateResults.hobbies.join(', ')}</p>
-                      </div>
+                    <div className="mt-auto pt-8">
                       <button 
-                        type="button"
                         onClick={() => {
-                          setFormData(prev => ({ ...prev, hobbies: investigateResults.hobbies!.join(', ') }));
-                          setInvestigateResults(prev => ({ ...prev, hobbies: undefined }) as any);
+                          if (cardImages.length > 0) {
+                            processCardImages();
+                          }
+                          setQuickAddStep('NOTES');
                         }}
-                        className="px-4 py-2 bg-primary/20 text-primary border border-primary/30 rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-primary hover:text-white transition-all whitespace-nowrap"
+                        className="w-full bg-primary text-white py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] shadow-glow flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all"
                       >
-                        Aprobar
+                        Continuar <ArrowRight size={20} />
                       </button>
                     </div>
-                  )}
-
-                  {!['avatar', 'role', 'location', 'notes', 'hobbies', 'icebreaker'].some(k => investigateResults[k as keyof typeof investigateResults]) && (
-                    <div className="text-center py-10 text-muted-foreground text-sm font-medium">
-                      Todos los datos procesados o no se encontró información adicional.
-                    </div>
-                  )}
-                </div>
-
-                <div className="pt-6 mt-auto border-t border-white/10 flex justify-end">
-                  <button 
-                    type="button"
-                    onClick={() => setInvestigateResults(null)}
-                    className="bg-zinc-800 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-700 transition-all border border-white/5"
-                  >
-                    Volver al Formulario
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Header & Tabs Navigation */}
-          <div className="p-6 lg:p-10 pb-0 lg:pb-0 space-y-6 lg:space-y-8 flex-shrink-0">
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="text-3xl lg:text-4xl font-black tracking-tighter text-white uppercase">
-                  {contact ? t('dashboard.editContact') : 'Sincronización'}
-                </h3>
-                <p className="text-[10px] text-primary uppercase tracking-[0.4em] font-black mt-2 font-mono">
-                  {isInvestigating ? 'AI Deep Search Active...' : isScanning ? 'Parsing Card Metadata...' : contact ? 'Updating Profile...' : 'Intelligence Unit v2.0'}
-                </p>
-              </div>
-              <div className="flex gap-2 lg:gap-4">
-                <input 
-                  type="file" 
-                  ref={cardInputRef} 
-                  className="hidden" 
-                  accept="image/*" 
-                  capture="environment"
-                  onChange={handleCardFileChange} 
-                />
-                {!contact && (formData.name || formData.company) && (
-                  <button 
-                    onClick={handleCardScan}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-white hover:bg-white/10 transition-all"
-                  >
-                    <Maximize2 size={14} className={isScanning ? 'animate-pulse text-primary' : ''} />
-                    <span className="hidden sm:inline">Escanear Tarjeta</span>
-                  </button>
+                  </motion.div>
                 )}
-                <button onClick={onClose} className="w-10 h-10 lg:w-12 lg:h-12 rounded-full bg-white/5 flex items-center justify-center hover:bg-primary transition-all group">
-                  <X size={20} className="text-zinc-500 group-hover:text-white" />
-                </button>
-              </div>
-            </div>
 
-            <div className="flex gap-2 bg-white/5 p-1.5 rounded-[1.5rem] border border-white/5">
-              {tabs.map(tab => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex-1 flex items-center justify-center gap-3 py-4 rounded-[1.25rem] text-[10px] font-black uppercase tracking-widest transition-all ${
-                    activeTab === tab.id ? 'bg-zinc-800 text-white shadow-xl border border-white/5' : 'text-zinc-500 hover:text-zinc-300'
-                  }`}
-                >
-                  <tab.icon size={14} strokeWidth={3} className={activeTab === tab.id ? 'text-primary' : ''} />
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-          </div>
+                {/* STEP 2: AUDIO NOTES */}
+                {quickAddStep === 'NOTES' && (
+                  <motion.div 
+                    key="step-notes"
+                    initial={{ opacity: 0, x: 50 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -50 }}
+                    className="flex-1 flex flex-col p-8 lg:p-12"
+                  >
+                    <div className="mb-12">
+                      <h3 className="text-4xl lg:text-5xl font-black tracking-tighter text-white uppercase mb-2">Notas de Voz</h3>
+                      <p className="text-xs text-primary font-black uppercase tracking-[0.3em] mono">Dictado Estratégico</p>
+                    </div>
 
-          {/* Form Content */}
-          <div className="flex-1 overflow-y-auto no-scrollbar p-6 lg:p-10 pt-6 lg:pt-8">
-            <form onSubmit={handleSubmit} className="h-full flex flex-col">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={activeTab}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.3 }}
-                  className="space-y-8 flex-1"
-                >
-                  {activeTab === 'prof' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
-                      {!contact && !formData.name && !formData.company && (
-                        <div className="col-span-1 md:col-span-2 mb-2 space-y-6">
+                    <div className="flex-1 flex flex-col items-center justify-center gap-12">
+                      <div className="relative">
+                        {isRecording && (
+                          <motion.div 
+                            animate={{ scale: [1, 1.5], opacity: [0.3, 0] }}
+                            transition={{ duration: 1.5, repeat: Infinity }}
+                            className="absolute inset-0 bg-primary rounded-full"
+                          />
+                        )}
+                        <button 
+                          onMouseDown={startRecording}
+                          onMouseUp={stopRecording}
+                          onTouchStart={startRecording}
+                          onTouchEnd={stopRecording}
+                          className={`relative z-10 w-32 h-32 lg:w-40 lg:h-40 rounded-full flex items-center justify-center transition-all ${
+                            isRecording ? 'bg-primary scale-110 shadow-glow' : 'bg-white/5 border border-white/10 hover:bg-white/10'
+                          }`}
+                        >
+                          <Mic size={48} className={isRecording ? 'text-white' : 'text-zinc-400'} />
+                        </button>
+                      </div>
+                      
+                      <div className="w-full max-w-md text-center space-y-4">
+                        <p className="text-sm font-bold text-zinc-400">
+                          {isRecording ? 'Grabando...' : isTranscribing ? 'Procesando Inteligencia...' : 'Mantén pulsado para dictar notas sobre este contacto'}
+                        </p>
+                        
+                        <textarea 
+                          className="w-full bg-white/[0.02] border border-white/5 rounded-2xl p-6 text-white text-sm italic min-h-[120px] focus:outline-none focus:border-primary/30 transition-all no-scrollbar"
+                          placeholder="Las notas transcritas aparecerán aquí..."
+                          value={formData.personalGoal}
+                          onChange={e => setFormData({...formData, personalGoal: e.target.value})}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-auto pt-8">
+                      <button 
+                        onClick={() => setQuickAddStep('CATEGORY')}
+                        className="w-full bg-primary text-white py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] shadow-glow flex items-center justify-center gap-3 hover:scale-[1.02] transition-all"
+                      >
+                        Categorizar <ArrowRight size={20} />
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* STEP 3: CATEGORY */}
+                {quickAddStep === 'CATEGORY' && (
+                  <motion.div 
+                    key="step-category"
+                    initial={{ opacity: 0, x: 50 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -50 }}
+                    className="flex-1 flex flex-col p-8 lg:p-12 overflow-y-auto no-scrollbar"
+                  >
+                    <div className="mb-12">
+                      <h3 className="text-4xl lg:text-5xl font-black tracking-tighter text-white uppercase mb-2">Categoría</h3>
+                      <p className="text-xs text-primary font-black uppercase tracking-[0.3em] mono">Segmentación Ejecutiva</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 pb-12">
+                      {CONTACT_CATEGORIES.map((cat) => (
+                        <button 
+                          key={cat.id}
+                          onClick={() => setFormData({...formData, category: cat.label})}
+                          className={`p-6 rounded-[2rem] border transition-all text-left group flex flex-col gap-2 ${
+                            formData.category === cat.label 
+                              ? 'bg-primary border-primary text-white shadow-glow' 
+                              : 'bg-white/5 border-white/5 text-zinc-500 hover:border-primary/50 hover:text-white'
+                          }`}
+                        >
+                          <span className={`text-[8px] font-black uppercase tracking-widest opacity-50 ${formData.category === cat.label ? 'text-white' : 'text-primary'}`}>
+                            {cat.group}
+                          </span>
+                          <span className="text-xs lg:text-sm font-black uppercase tracking-tight leading-none">
+                            {cat.label}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="mt-auto pt-8">
+                      <button 
+                        onClick={(e) => {
+                          handleSubmit(e as any);
+                          setQuickAddStep('SUCCESS');
+                        }}
+                        className="w-full bg-primary text-white py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] shadow-glow flex items-center justify-center gap-3 hover:scale-[1.02] transition-all"
+                      >
+                        Finalizar <ArrowRight size={20} />
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* STEP 4: SUCCESS */}
+                {quickAddStep === 'SUCCESS' && (
+                  <motion.div 
+                    key="step-success"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="flex-1 flex flex-col items-center justify-center p-8 lg:p-12 text-center"
+                  >
+                    <div className="w-32 h-32 bg-success/20 rounded-full flex items-center justify-center text-success mb-8 animate-bounce shadow-[0_0_50px_rgba(16,185,129,0.3)]">
+                      <CheckCircle size={64} />
+                    </div>
+                    <h3 className="text-4xl lg:text-5xl font-black text-white uppercase tracking-tighter mb-4">¡Éxito!</h3>
+                    <p className="text-zinc-400 font-medium mb-12 max-w-xs uppercase text-[10px] tracking-widest">
+                      Inteligencia capturada. La IA está procesando los detalles en segundo plano.
+                    </p>
+                    <button 
+                      onClick={onClose}
+                      className="w-full max-w-xs bg-white text-black py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] hover:scale-[1.05] transition-all"
+                    >
+                      Volver al Dashboard
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              
+              {/* Background Process Indicator */}
+              {(isScanning || isInvestigating) && quickAddStep !== 'SUCCESS' && (
+                <div className="absolute bottom-10 left-10 flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-glow" />
+                  <span className="text-[8px] font-black uppercase tracking-[0.3em] text-primary mono">AI Background Engine Active</span>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Standard Edit Flow */
+            <div className="flex-1 flex flex-col h-full">
+              {/* Investigation Audit Overlay (Still useful for edits) */}
+              <AnimatePresence>
+                {investigateResults && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 50 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 50 }}
+                    className="absolute inset-0 z-[100] bg-zinc-950/95 backdrop-blur-3xl flex flex-col p-6 lg:p-10"
+                  >
+                    <div className="flex justify-between items-center mb-8">
+                      <div>
+                        <h3 className="text-2xl lg:text-3xl font-black tracking-tighter text-white uppercase flex items-center gap-3">
+                          <Sparkles className="text-primary" /> Auditoría Humana
+                        </h3>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">Selecciona los datos encontrados para guardar</p>
+                      </div>
+                      <button onClick={() => setInvestigateResults(null)} className="p-2 bg-white/5 rounded-full hover:bg-white/10 transition-all">
+                        <X size={20} />
+                      </button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto no-scrollbar space-y-4">
+                      {['avatar', 'role', 'location', 'notes', 'icebreaker'].map((field) => {
+                        const val = investigateResults[field as keyof typeof investigateResults];
+                        if (!val) return null;
+                        return (
+                          <div key={field} className="bg-white/5 border border-white/10 p-4 rounded-2xl flex items-center justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[10px] uppercase text-primary font-black tracking-widest mb-1">
+                                {field === 'notes' ? 'Bio / Notas' : field === 'icebreaker' ? 'Rompehielos Estratégico' : field}
+                              </p>
+                              <p className="text-sm text-white truncate">{typeof val === 'string' ? val : Array.isArray(val) ? val.join(', ') : ''}</p>
+                            </div>
+                            <button 
+                              type="button"
+                              onClick={() => {
+                                if (field === 'icebreaker') {
+                                  setFormData(prev => ({ ...prev, intelligence: { ...prev.intelligence, icebreaker: val as string } }));
+                                } else {
+                                  setFormData(prev => ({ ...prev, [field === 'notes' ? 'personalGoal' : field]: val }));
+                                }
+                                setInvestigateResults(prev => ({ ...prev, [field]: undefined }) as any);
+                              }}
+                              className="px-4 py-2 bg-primary/20 text-primary border border-primary/30 rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-primary hover:text-white transition-all whitespace-nowrap"
+                            >
+                              Aprobar
+                            </button>
+                          </div>
+                        );
+                      })}
+                      
+                      {investigateResults.hobbies && investigateResults.hobbies.length > 0 && (
+                        <div className="bg-white/5 border border-white/10 p-4 rounded-2xl flex items-center justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[10px] uppercase text-primary font-black tracking-widest mb-1">Hobbies / Intereses</p>
+                            <p className="text-sm text-white truncate">{investigateResults.hobbies.join(', ')}</p>
+                          </div>
                           <button 
                             type="button"
-                            onClick={handleCardScan}
-                            className="w-full relative group overflow-hidden rounded-[2rem] bg-gradient-to-br from-primary/20 to-primary/5 border-2 border-primary/30 p-10 lg:p-12 flex flex-col items-center justify-center gap-6 hover:border-primary transition-all glow-red shadow-2xl"
+                            onClick={() => {
+                              setFormData(prev => ({ ...prev, hobbies: investigateResults.hobbies!.join(', ') }));
+                              setInvestigateResults(prev => ({ ...prev, hobbies: undefined }) as any);
+                            }}
+                            className="px-4 py-2 bg-primary/20 text-primary border border-primary/30 rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-primary hover:text-white transition-all whitespace-nowrap"
                           >
-                            <div className="absolute inset-0 bg-primary/10 group-hover:bg-primary/20 transition-colors" />
-                            <div className="w-20 h-20 lg:w-24 lg:h-24 bg-primary rounded-full flex items-center justify-center text-white shadow-glow group-hover:scale-110 transition-transform">
-                              <Camera size={40} className="lg:w-12 lg:h-12" />
-                            </div>
-                            <div className="text-center relative z-10">
-                              <h3 className="text-xl lg:text-2xl font-black text-white uppercase tracking-widest">Tomar Foto de Tarjeta</h3>
-                              <p className="text-[10px] lg:text-xs text-primary/80 mt-2 font-medium uppercase tracking-widest">Extracción Mágica + GPS</p>
-                            </div>
+                            Aprobar
                           </button>
-                          
-                          <div className="flex items-center gap-4 px-4">
-                            <div className="h-[1px] flex-1 bg-white/10"></div>
-                            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-zinc-500">O crea el perfil manualmente</span>
-                            <div className="h-[1px] flex-1 bg-white/10"></div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-6 mt-auto border-t border-white/10 flex justify-end">
+                      <button 
+                        type="button"
+                        onClick={() => setInvestigateResults(null)}
+                        className="bg-zinc-800 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-700 transition-all border border-white/5"
+                      >
+                        Volver al Formulario
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Header & Tabs Navigation */}
+              <div className="p-6 lg:p-10 pb-0 lg:pb-0 space-y-6 lg:space-y-8 flex-shrink-0">
+                <div>
+                  <h3 className="text-3xl lg:text-4xl font-black tracking-tighter text-white uppercase">
+                    {t('dashboard.editContact')}
+                  </h3>
+                  <p className="text-[10px] text-primary uppercase tracking-[0.4em] font-black mt-2 font-mono">
+                    {isInvestigating ? 'AI Deep Search Active...' : 'Intelligence Unit v2.0'}
+                  </p>
+                </div>
+
+                <div className="flex gap-2 bg-white/5 p-1.5 rounded-[1.5rem] border border-white/5">
+                  {tabs.map(tab => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`flex-1 flex items-center justify-center gap-3 py-4 rounded-[1.25rem] text-[10px] font-black uppercase tracking-widest transition-all ${
+                        activeTab === tab.id ? 'bg-zinc-800 text-white shadow-xl border border-white/5' : 'text-zinc-500 hover:text-zinc-300'
+                      }`}
+                    >
+                      <tab.icon size={14} strokeWidth={3} className={activeTab === tab.id ? 'text-primary' : ''} />
+                      <span className="hidden sm:inline">{tab.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Form Content */}
+              <div className="flex-1 overflow-y-auto no-scrollbar p-6 lg:p-10 pt-6 lg:pt-8">
+                <form onSubmit={handleSubmit} className="h-full flex flex-col">
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={activeTab}
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      transition={{ duration: 0.3 }}
+                      className="space-y-8 flex-1"
+                    >
+                      {activeTab === 'prof' && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+                          <div className="col-span-1 md:col-span-2 flex flex-col sm:flex-row items-end gap-4">
+                            <div className="space-y-3 flex-1 w-full">
+                              <label className="label-executive">Nombre Completo</label>
+                              <input required className="input-core" placeholder="Ej. Alexander Pierce" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                            </div>
+                            <button 
+                              type="button"
+                              onClick={handleAIInvestigate}
+                              disabled={!formData.name || isInvestigating}
+                              className={`w-full sm:w-auto h-[52px] flex items-center justify-center gap-2 px-6 rounded-xl border transition-all ${isInvestigating ? 'bg-primary/20 text-primary border-primary/30' : formData.name ? 'bg-primary/10 text-primary hover:bg-primary hover:text-white border-primary/30 glow-red' : 'bg-white/5 text-zinc-600 border-white/5'}`}
+                            >
+                              <Sparkles size={16} className={isInvestigating ? 'animate-spin' : ''} />
+                              <span className="text-[10px] font-black uppercase tracking-widest">{isInvestigating ? 'Buscando...' : 'Deep Search AI'}</span>
+                            </button>
+                          </div>
+                          <div className="space-y-3">
+                            <label className="label-executive">Cargo / Role</label>
+                            <input required className="input-core" placeholder="CEO / Founder" value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} />
+                          </div>
+                          <div className="space-y-3">
+                            <label className="label-executive">Compañía</label>
+                            <input required className="input-core" placeholder="The Core Industries" value={formData.company} onChange={e => setFormData({...formData, company: e.target.value})} />
+                          </div>
+                          <div className="space-y-3">
+                            <label className="label-executive">Teléfono</label>
+                            <input type="tel" className="input-core" placeholder="+1 234 567 890" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+                          </div>
+                          <div className="space-y-3">
+                            <label className="label-executive">Página Web</label>
+                            <input className="input-core" placeholder="https://thecore.com" value={formData.website} onChange={e => setFormData({...formData, website: e.target.value})} />
+                          </div>
+                          <div className="space-y-3">
+                            <label className="label-executive">Email Corporativo</label>
+                            <input required type="email" className="input-core" placeholder="alex@company.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                          </div>
+                          <div className="col-span-1 md:col-span-2 space-y-3">
+                            <label className="label-executive">Dirección / Ubicación</label>
+                            <input className="input-core" placeholder="Ciudad, País" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} />
+                          </div>
+                          <div className="col-span-1 md:col-span-2 space-y-3">
+                            <label className="label-executive">Categoría</label>
+                            <select 
+                              className="input-core" 
+                              value={formData.category} 
+                              onChange={e => setFormData({...formData, category: e.target.value})}
+                            >
+                              <option value="">Sin Categoría</option>
+                              {CONTACT_CATEGORIES.map(cat => (
+                                <option key={cat.id} value={cat.label}>{cat.group}: {cat.label}</option>
+                              ))}
+                            </select>
                           </div>
                         </div>
                       )}
-                      <div className="col-span-1 md:col-span-2 flex flex-col sm:flex-row items-end gap-4">
-                        <div className="space-y-3 flex-1 w-full">
-                          <label className="label-executive">Nombre Completo</label>
-                          <input required className="input-core" placeholder="Ej. Alexander Pierce" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-                        </div>
-                        <button 
-                          type="button"
-                          onClick={handleAIInvestigate}
-                          disabled={!formData.name || isInvestigating}
-                          className={`w-full sm:w-auto h-[52px] flex items-center justify-center gap-2 px-6 rounded-xl border transition-all ${isInvestigating ? 'bg-primary/20 text-primary border-primary/30' : formData.name ? 'bg-primary/10 text-primary hover:bg-primary hover:text-white border-primary/30 glow-red' : 'bg-white/5 text-zinc-600 border-white/5'}`}
-                        >
-                          <Sparkles size={16} className={isInvestigating ? 'animate-spin' : ''} />
-                          <span className="text-[10px] font-black uppercase tracking-widest">{isInvestigating ? 'Buscando...' : 'Deep Search AI'}</span>
-                        </button>
-                      </div>
-                      <div className="space-y-3">
-                        <label className="label-executive">Cargo / Role</label>
-                        <input required className="input-core" placeholder="CEO / Founder" value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} />
-                      </div>
-                      <div className="space-y-3">
-                        <label className="label-executive">Compañía</label>
-                        <input required className="input-core" placeholder="The Core Industries" value={formData.company} onChange={e => setFormData({...formData, company: e.target.value})} />
-                      </div>
-                      <div className="space-y-3">
-                        <label className="label-executive">Teléfono</label>
-                        <input type="tel" className="input-core" placeholder="+1 234 567 890" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
-                      </div>
-                      <div className="space-y-3">
-                        <label className="label-executive flex justify-between">
-                          Página Web
-                          {formData.website && <a href={formData.website} target="_blank" rel="noreferrer" className="text-primary hover:underline uppercase text-[8px] tracking-widest font-bold">Abrir</a>}
-                        </label>
-                        <input className="input-core" placeholder="https://thecore.com" value={formData.website} onChange={e => setFormData({...formData, website: e.target.value})} />
-                      </div>
-                      <div className="space-y-3">
-                        <label className="label-executive">Email Corporativo</label>
-                        <input required type="email" className="input-core" placeholder="alex@company.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
-                      </div>
-                      <div className="col-span-1 md:col-span-2 space-y-3">
-                        <label className="label-executive flex justify-between">
-                          Dirección / Ubicación
-                          {formData.captureMetadata?.meetingLocation && (
-                            <span className="text-primary/70 text-[8px] font-mono tracking-widest">{formData.captureMetadata.meetingLocation}</span>
-                          )}
-                        </label>
-                        <input className="input-core" placeholder="Ciudad, País o Dirección Física" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} />
-                      </div>
-                      <div className="col-span-1 md:col-span-2 space-y-3">
-                        <label className="label-executive flex justify-between">
-                          Rompehielos / Icebreaker AI
-                          <Sparkles size={12} className="text-primary" />
-                        </label>
-                        <input className="input-core bg-primary/5 border-primary/20 text-primary placeholder:text-primary/30" placeholder="Un buen tema de conversación para la próxima reunión..." value={formData.intelligence?.icebreaker} onChange={e => setFormData({...formData, intelligence: { ...formData.intelligence, icebreaker: e.target.value }})} />
-                      </div>
-                      <div className="col-span-1 md:col-span-2 space-y-3 p-4 lg:p-6 rounded-2xl bg-white/[0.02] border border-white/5">
-                        <label className="label-executive text-primary">Identidad Visual (Foto)</label>
-                        <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-start">
-                          <div className="relative group/avatar cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                            <ContactAvatar src={formData.avatar} name={formData.name || 'User'} className="w-20 h-20 rounded-2xl border-2 border-dashed border-white/20 group-hover/avatar:border-primary/50 transition-colors" />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/avatar:opacity-100 flex items-center justify-center rounded-2xl transition-opacity">
-                              <Upload size={20} className="text-white" />
-                            </div>
-                            <input 
-                              type="file" 
-                              ref={fileInputRef} 
-                              className="hidden" 
-                              accept="image/*" 
-                              onChange={handleFileUpload} 
-                            />
-                          </div>
-                          <div className="flex-1 space-y-3">
-                            <input 
-                              className="input-core bg-black/40 py-3 text-sm" 
-                              placeholder="Pega la URL de la imagen..." 
-                              value={formData.avatar?.startsWith('data:') ? 'Imagen Cargada Localmente' : formData.avatar} 
-                              onChange={e => setFormData({...formData, avatar: e.target.value})} 
-                            />
-                            <p className="text-[9px] text-zinc-600 font-medium italic">
-                              * Haz clic en el recuadro para subir un archivo local o pega una URL arriba.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="space-y-3 col-span-1 md:col-span-2">
-                        <label className="label-executive">Cumpleaños</label>
-                        <input type="date" className="input-core" value={formData.birthday} onChange={e => setFormData({...formData, birthday: e.target.value})} />
-                      </div>
-                      <div className="col-span-1 md:col-span-2 mt-2 pt-6 border-t border-white/5 space-y-6">
-                        <h4 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">
-                          <Sparkles size={14} className="text-primary" /> Contexto del Encuentro
-                        </h4>
+
+                      {activeTab === 'intl' && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
                           <div className="space-y-3">
-                            <label className="label-executive">Fecha y Hora del Encuentro</label>
-                            <input 
-                              type="datetime-local"
-                              className="input-core" 
-                              value={formData.captureMetadata?.capturedAt ? new Date(formData.captureMetadata.capturedAt).toISOString().slice(0,16) : ''} 
-                              onChange={e => setFormData({
-                                ...formData, 
-                                captureMetadata: { ...formData.captureMetadata, capturedAt: e.target.value ? new Date(e.target.value).toISOString() : '' } as any
-                              })} 
-                            />
+                            <label className="label-executive">Pareja / Cónyuge</label>
+                            <input className="input-core" placeholder="Nombre" value={formData.spouseName} onChange={e => setFormData({...formData, spouseName: e.target.value})} />
                           </div>
-                          <div className="space-y-3">
-                            <label className="label-executive">Lugar del Encuentro</label>
-                            <input 
-                              className="input-core" 
-                              placeholder="Ej. Restaurante Cipriani, GPS..." 
-                              value={formData.captureMetadata?.meetingLocation || ''} 
-                              onChange={e => setFormData({
-                                ...formData, 
-                                captureMetadata: { ...formData.captureMetadata, meetingLocation: e.target.value } as any
-                              })} 
-                            />
+                          <div className="col-span-1 md:col-span-2 space-y-3">
+                            <label className="label-executive">Hijos (Separados por coma)</label>
+                            <input className="input-core" placeholder="Ej. Mateo, Sofía" value={formData.children} onChange={e => setFormData({...formData, children: e.target.value})} />
                           </div>
                         </div>
-                      </div>
-                    </div>
-                  )}
+                      )}
 
-                  {activeTab === 'intl' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
-                      <div className="space-y-3">
-                        <label className="label-executive">Pareja / Cónyuge</label>
-                        <input className="input-core" placeholder="Nombre" value={formData.spouseName} onChange={e => setFormData({...formData, spouseName: e.target.value})} />
-                      </div>
-                      <div className="space-y-3">
-                        <label className="label-executive">Cumpleaños Pareja</label>
-                        <input type="date" className="input-core" value={formData.spouseBirthday} onChange={e => setFormData({...formData, spouseBirthday: e.target.value})} />
-                      </div>
-                      <div className="col-span-1 md:col-span-2 space-y-3">
-                        <label className="label-executive">Hijos (Nombres separados por coma)</label>
-                        <input className="input-core" placeholder="Ej. Mateo, Sofía" value={formData.children} onChange={e => setFormData({...formData, children: e.target.value})} />
-                      </div>
-                      <div className="col-span-1 md:col-span-2 p-4 lg:p-6 rounded-2xl bg-primary/5 border border-primary/10">
-                        <p className="text-[10px] text-primary font-black uppercase tracking-[0.2em] mb-2 font-mono italic">Nota de Inteligencia:</p>
-                        <p className="text-xs text-muted-foreground leading-relaxed">Saber los nombres de su familia te permite un rompehielo Nivel 3. Úsalo con discreción ejecutiva.</p>
-                      </div>
-                    </div>
-                  )}
+                      {activeTab === 'int' && (
+                        <div className="space-y-8">
+                          <div className="space-y-3">
+                            <label className="label-executive">Pasiones</label>
+                            <input className="input-core" placeholder="Ej. F1, Vinos, Golf" value={formData.hobbies} onChange={e => setFormData({...formData, hobbies: e.target.value})} />
+                          </div>
+                          <div className="space-y-3">
+                            <label className="label-executive">Notas / Bio</label>
+                            <textarea className="input-core h-32 resize-none" placeholder="Contexto personal..." value={formData.personalGoal} onChange={e => setFormData({...formData, personalGoal: e.target.value})} />
+                          </div>
+                        </div>
+                      )}
+                    </motion.div>
+                  </AnimatePresence>
 
-                  {activeTab === 'int' && (
-                    <div className="space-y-8">
-                      <div className="space-y-3">
-                        <label className="label-executive">Pasiones (Separados por coma)</label>
-                        <input className="input-core" placeholder="Ej. F1, Vinos, Golf, Relojes" value={formData.hobbies} onChange={e => setFormData({...formData, hobbies: e.target.value})} />
-                      </div>
-                      <div className="space-y-3">
-                        <label className="label-executive">Obsesión Actual / Meta Personal</label>
-                        <textarea className="input-core h-32 resize-none" placeholder="¿En qué está enfocado ahora mismo?" value={formData.personalGoal} onChange={e => setFormData({...formData, personalGoal: e.target.value})} />
-                      </div>
-                      <div className="space-y-3">
-                        <label className="label-executive">Puntuación de Relación inicial: {formData.relationshipScore}%</label>
-                        <input type="range" className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-primary" value={formData.relationshipScore} onChange={e => setFormData({...formData, relationshipScore: parseInt(e.target.value)})} />
-                      </div>
-                    </div>
-                  )}
-                </motion.div>
-              </AnimatePresence>
-
-              {/* Action Bar */}
-              <div className="pt-8 mt-auto flex justify-between items-center gap-6 border-t border-white/5">
-                <p className="text-[9px] text-zinc-600 uppercase tracking-widest font-mono font-black">
-                  {activeTab === 'prof' ? 'Paso 1 de 3' : activeTab === 'intl' ? 'Paso 2 de 3' : 'Finalizar Perfil'}
-                </p>
-                <div className="flex gap-4">
-                  {activeTab !== 'prof' && (
-                    <button 
-                      type="button"
-                      onClick={() => setActiveTab(activeTab === 'int' ? 'intl' : 'prof')}
-                      className="px-6 lg:px-8 py-3 lg:py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-white transition-all"
-                    >
-                      Atrás
+                  <div className="pt-8 mt-auto flex justify-end gap-4">
+                    <button type="submit" className="bg-primary text-white px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest glow-red hover:scale-105 transition-all shadow-xl">
+                      {t('dashboard.saveChanges')}
                     </button>
-                  )}
-                  {activeTab !== 'int' ? (
-                    <button 
-                      type="button"
-                      onClick={() => setActiveTab(activeTab === 'prof' ? 'intl' : 'int')}
-                      className="bg-zinc-800 text-white px-6 lg:px-10 py-3 lg:py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-700 transition-all border border-white/5 shadow-xl"
-                    >
-                      Siguiente
-                    </button>
-                  ) : (
-                    <button type="submit" className="bg-primary text-white px-6 lg:px-10 py-3 lg:py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest glow-red hover:scale-105 active:scale-95 transition-all shadow-xl">
-                      {contact ? t('dashboard.saveChanges') : 'Completar Perfil'}
-                    </button>
-                  )}
-                </div>
+                  </div>
+                </form>
               </div>
-            </form>
-          </div>
+            </div>
+          )}
         </motion.div>
       </motion.div>
     </AnimatePresence>
   );
+};
+
+
 };
 
 const ContactsView = ({ 
@@ -1749,22 +1788,25 @@ export default function App() {
   const [expandedContact, setExpandedContact] = useState<Contact | null>(null);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [appContacts, setAppContacts] = useState<Contact[]>(() => {
-    try {
-      const saved = localStorage.getItem('core_contacts');
-      return saved ? JSON.parse(saved) : contacts;
-    } catch (e) {
-      return contacts;
-    }
-  });
+  const [appContacts, setAppContacts] = useState<Contact[]>(contacts);
   const [contactToEdit, setContactToEdit] = useState<Contact | null>(null);
   const [externalSelectedContactId, setExternalSelectedContactId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Persistence
+  // Persistence: Initial Load
   useEffect(() => {
-    localStorage.setItem('core_contacts', JSON.stringify(appContacts));
-  }, [appContacts]);
+    const loadContacts = async () => {
+      try {
+        const data = await contactService.getAll();
+        if (data && data.length > 0) {
+          setAppContacts(data);
+        }
+      } catch (error) {
+        console.error('Failed to load contacts from server:', error);
+      }
+    };
+    loadContacts();
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1813,13 +1855,20 @@ export default function App() {
             setIsAddModalOpen(false);
             setContactToEdit(null);
           }}
-          onSave={(contactData) => {
-            if (contactToEdit) {
-              setAppContacts(prev => prev.map(c => c.id === contactData.id ? contactData : c));
-              setToastMessage('Perfil actualizado correctamente');
-            } else {
-              setAppContacts([contactData, ...appContacts]);
-              setToastMessage('Contacto creado correctamente');
+          onSave={async (contactData) => {
+            try {
+              if (contactToEdit) {
+                const updated = await contactService.update(contactData.id, contactData);
+                setAppContacts(prev => prev.map(c => c.id === updated.id ? updated : c));
+                setToastMessage('Perfil actualizado correctamente');
+              } else {
+                const created = await contactService.create(contactData);
+                setAppContacts([created, ...appContacts]);
+                setToastMessage('Contacto creado correctamente');
+              }
+            } catch (error) {
+              console.error('Failed to save contact:', error);
+              setToastMessage('Error al guardar contacto');
             }
             setTimeout(() => setToastMessage(null), 3000);
           }}
@@ -1870,8 +1919,15 @@ export default function App() {
                   onExpandContact={setExpandedContact}
                   onAddContact={() => setIsAddModalOpen(true)}
                   onEditContact={(c) => setContactToEdit(c)}
-                  onDeleteContact={(id) => {
-                    setAppContacts(prev => prev.filter(c => c.id !== id));
+                  onDeleteContact={async (id) => {
+                    try {
+                      await contactService.delete(id);
+                      setAppContacts(prev => prev.filter(c => c.id !== id));
+                      setToastMessage('Contacto eliminado');
+                    } catch (error) {
+                      console.error('Failed to delete contact:', error);
+                      setToastMessage('Error al eliminar contacto');
+                    }
                   }}
                 />
               </motion.div>

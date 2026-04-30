@@ -33,6 +33,7 @@ export interface Contact {
   interactions: Interaction[];
   relationshipScore: number; // 0-100
   notes: string;
+  category?: string;
   avatar?: string;
   captureMetadata?: CaptureMetadata;
   intelligence?: {
