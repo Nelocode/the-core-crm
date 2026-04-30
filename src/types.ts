@@ -9,6 +9,12 @@ export interface Interaction {
   sentiment: 'positive' | 'neutral' | 'negative';
 }
 
+export interface CaptureMetadata {
+  capturedAt: string; // ISO date
+  latitude?: number;
+  longitude?: number;
+}
+
 export interface Contact {
   id: string;
   name: string;
@@ -26,6 +32,7 @@ export interface Contact {
   relationshipScore: number; // 0-100
   notes: string;
   avatar?: string;
+  captureMetadata?: CaptureMetadata;
 }
 
 export type MeetingStatus = 'upcoming' | 'completed' | 'cancelled';

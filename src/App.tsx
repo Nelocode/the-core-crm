@@ -764,6 +764,8 @@ const ContactModal = ({
     role: '',
     company: '',
     email: '',
+    phone: '',
+    location: '',
     avatar: '',
     birthday: '',
     spouseName: '',
@@ -771,7 +773,8 @@ const ContactModal = ({
     children: '',
     hobbies: '',
     personalGoal: '',
-    relationshipScore: 50
+    relationshipScore: 50,
+    captureMetadata: undefined as any // will be typed as CaptureMetadata | undefined
   });
 
   useEffect(() => {
@@ -784,6 +787,8 @@ const ContactModal = ({
         role: contact.role || '',
         company: contact.company || '',
         email: contact.email || '',
+        phone: contact.phone || '',
+        location: contact.location || '',
         avatar: contact.avatar || '',
         birthday: '', // Assuming these might not be in the mock data but in the type soon
         spouseName: contact.family?.spouse || '',
@@ -791,13 +796,14 @@ const ContactModal = ({
         children: contact.family?.children?.join(', ') || '',
         hobbies: contact.hobbies?.join(', ') || '',
         personalGoal: contact.notes || '',
-        relationshipScore: contact.relationshipScore || 50
+        relationshipScore: contact.relationshipScore || 50,
+        captureMetadata: contact.captureMetadata
       });
     } else {
       setFormData({
-        name: '', role: '', company: '', email: '', avatar: '', birthday: '', 
+        name: '', role: '', company: '', email: '', phone: '', location: '', avatar: '', birthday: '', 
         spouseName: '', spouseBirthday: '', children: '', hobbies: '', 
-        personalGoal: '', relationshipScore: 50 
+        personalGoal: '', relationshipScore: 50, captureMetadata: undefined
       });
     }
   }, [contact, isOpen]);
@@ -902,6 +908,25 @@ const ContactModal = ({
       }, 15000);
 
       const blob = await optimizeImage(file);
+      
+      // Intentar obtener ubicación GPS
+      let lat, lng;
+      try {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+        });
+        lat = position.coords.latitude;
+        lng = position.coords.longitude;
+      } catch (err) {
+        console.warn('Geolocation failed or denied', err);
+      }
+
+      const captureMetadata = {
+        capturedAt: new Date().toISOString(),
+        latitude: lat,
+        longitude: lng
+      };
+
       // We send the blob directly to our service
       const result = await n8nService.scanBusinessCard(blob as any);
       
@@ -917,7 +942,10 @@ const ContactModal = ({
         role: result.role || prev.role,
         company: result.company || prev.company,
         email: result.email || prev.email,
-        avatar: result.avatar || prev.avatar
+        phone: result.phone || prev.phone,
+        location: result.location || prev.location,
+        avatar: result.avatar || prev.avatar,
+        captureMetadata
       }));
       setActiveTab('prof');
     } catch (error: any) {
@@ -943,10 +971,12 @@ const ContactModal = ({
       role: formData.role,
       company: formData.company,
       email: formData.email,
-      location: contact?.location || 'Remote',
+      phone: formData.phone,
+      location: formData.location || contact?.location || 'Remote',
       relationshipScore: formData.relationshipScore,
       lastInteraction: contact?.lastInteraction || new Date().toISOString(),
       avatar: formData.avatar || '',
+      captureMetadata: formData.captureMetadata,
       status: 'active',
       family: { 
         spouse: formData.spouseName, 
@@ -987,7 +1017,7 @@ const ContactModal = ({
           initial={{ scale: 0.95, y: 30, opacity: 0 }}
           animate={{ scale: 1, y: 0, opacity: 1 }}
           exit={{ scale: 0.95, y: 30, opacity: 0 }}
-          className="w-full max-w-3xl bg-zinc-950 border border-white/5 rounded-[2rem] lg:rounded-[3rem] shadow-[0_0_150px_rgba(249,17,23,0.15)] overflow-hidden flex flex-col h-[90vh] lg:h-[700px] relative"
+          className="w-full max-w-full lg:max-w-3xl bg-zinc-950 border border-white/5 rounded-[2rem] lg:rounded-[3rem] shadow-[0_0_150px_rgba(249,17,23,0.15)] overflow-x-hidden overflow-y-auto flex flex-col h-[90vh] lg:h-[700px] relative"
           onClick={e => e.stopPropagation()}
         >
           {/* Scanning Overlay */}
@@ -1122,8 +1152,16 @@ const ContactModal = ({
                         <input required className="input-core" placeholder="The Core Industries" value={formData.company} onChange={e => setFormData({...formData, company: e.target.value})} />
                       </div>
                       <div className="space-y-3">
+                        <label className="label-executive">Teléfono</label>
+                        <input type="tel" className="input-core" placeholder="+1 234 567 890" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+                      </div>
+                      <div className="space-y-3">
                         <label className="label-executive">Email Corporativo</label>
                         <input required type="email" className="input-core" placeholder="alex@company.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                      </div>
+                      <div className="space-y-3">
+                        <label className="label-executive">Dirección</label>
+                        <input className="input-core" placeholder="Ciudad, País o Dirección Física" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} />
                       </div>
                       <div className="col-span-1 md:col-span-2 space-y-3 p-4 lg:p-6 rounded-2xl bg-white/[0.02] border border-white/5">
                         <label className="label-executive text-primary">Identidad Visual (Foto)</label>
@@ -1231,6 +1269,15 @@ const ContactModal = ({
                   )}
                 </div>
               </div>
+              {formData.captureMetadata && (
+                <div className="px-6 lg:px-10 pb-6 lg:pb-8 flex justify-center">
+                  <p className="text-[9px] text-zinc-600 italic mono flex items-center gap-1.5">
+                    <Sparkles size={10} className="text-primary" />
+                    Capturado el {format(new Date(formData.captureMetadata.capturedAt), "dd/MM/yyyy HH:mm")}
+                    {formData.captureMetadata.latitude && ` • GPS 📍`}
+                  </p>
+                </div>
+              )}
             </form>
           </div>
         </motion.div>
@@ -1260,7 +1307,7 @@ const ContactsView = ({
   const filtered = filterContacts(appContacts, search);
 
   return (
-    <div className="p-10 h-full flex flex-col space-y-10 overflow-hidden">
+    <div className="p-4 sm:p-6 lg:p-10 h-full flex flex-col space-y-6 lg:space-y-10 overflow-x-hidden overflow-y-auto">
       <header className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6 flex-shrink-0">
         <div>
           <h2 className="text-3xl lg:text-5xl font-black tracking-tighter mb-2 uppercase">{t('sidebar.contacts')}</h2>

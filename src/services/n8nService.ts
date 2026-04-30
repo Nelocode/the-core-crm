@@ -9,6 +9,7 @@ export interface ScanCardResult {
   company?: string;
   email?: string;
   phone?: string;
+  location?: string;
   avatar?: string;
 }
 
