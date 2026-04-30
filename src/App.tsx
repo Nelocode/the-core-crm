@@ -992,10 +992,8 @@ const ContactModal = ({
       phone: formData.phone,
       location: formData.location || contact?.location || 'Remote',
       relationshipScore: formData.relationshipScore,
-      lastInteraction: contact?.lastInteraction || new Date().toISOString(),
       avatar: formData.avatar || '',
       captureMetadata: formData.captureMetadata,
-      status: 'active',
       family: { 
         spouse: formData.spouseName, 
         children: formData.children ? formData.children.split(',').map(s => s.trim()) : [] 
