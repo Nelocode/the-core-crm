@@ -1033,7 +1033,7 @@ const ContactModal = ({
             )}
           </AnimatePresence>
           {/* Header & Tabs Navigation */}
-          <div className="p-10 pb-0 space-y-8 flex-shrink-0">
+          <div className="p-6 lg:p-10 pb-0 lg:pb-0 space-y-6 lg:space-y-8 flex-shrink-0">
             <div className="flex justify-between items-start">
               <div>
                 <h3 className="text-3xl lg:text-4xl font-black tracking-tighter text-white uppercase">
@@ -1085,7 +1085,7 @@ const ContactModal = ({
           </div>
 
           {/* Form Content */}
-          <div className="flex-1 overflow-y-auto no-scrollbar p-10 pt-8">
+          <div className="flex-1 overflow-y-auto no-scrollbar p-6 lg:p-10 pt-6 lg:pt-8">
             <form onSubmit={handleSubmit} className="h-full flex flex-col">
               <AnimatePresence mode="wait">
                 <motion.div
@@ -1097,8 +1097,8 @@ const ContactModal = ({
                   className="space-y-8 flex-1"
                 >
                   {activeTab === 'prof' && (
-                    <div className="grid grid-cols-2 gap-8">
-                      <div className="col-span-2 space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+                      <div className="col-span-1 md:col-span-2 space-y-3">
                         <label className="label-executive flex justify-between">
                           Nombre Completo
                           <button 
@@ -1125,9 +1125,9 @@ const ContactModal = ({
                         <label className="label-executive">Email Corporativo</label>
                         <input required type="email" className="input-core" placeholder="alex@company.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
                       </div>
-                      <div className="col-span-2 space-y-3 p-6 rounded-2xl bg-white/[0.02] border border-white/5">
+                      <div className="col-span-1 md:col-span-2 space-y-3 p-4 lg:p-6 rounded-2xl bg-white/[0.02] border border-white/5">
                         <label className="label-executive text-primary">Identidad Visual (Foto)</label>
-                        <div className="flex gap-4">
+                        <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-start">
                           <div className="relative group/avatar cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                             <ContactAvatar src={formData.avatar} name={formData.name || 'User'} className="w-20 h-20 rounded-2xl border-2 border-dashed border-white/20 group-hover/avatar:border-primary/50 transition-colors" />
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/avatar:opacity-100 flex items-center justify-center rounded-2xl transition-opacity">
@@ -1154,7 +1154,7 @@ const ContactModal = ({
                           </div>
                         </div>
                       </div>
-                      <div className="space-y-3 col-span-2">
+                      <div className="space-y-3 col-span-1 md:col-span-2">
                         <label className="label-executive">Cumpleaños</label>
                         <input type="date" className="input-core" value={formData.birthday} onChange={e => setFormData({...formData, birthday: e.target.value})} />
                       </div>
@@ -1162,7 +1162,7 @@ const ContactModal = ({
                   )}
 
                   {activeTab === 'intl' && (
-                    <div className="grid grid-cols-2 gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
                       <div className="space-y-3">
                         <label className="label-executive">Pareja / Cónyuge</label>
                         <input className="input-core" placeholder="Nombre" value={formData.spouseName} onChange={e => setFormData({...formData, spouseName: e.target.value})} />
@@ -1171,11 +1171,11 @@ const ContactModal = ({
                         <label className="label-executive">Cumpleaños Pareja</label>
                         <input type="date" className="input-core" value={formData.spouseBirthday} onChange={e => setFormData({...formData, spouseBirthday: e.target.value})} />
                       </div>
-                      <div className="col-span-2 space-y-3">
+                      <div className="col-span-1 md:col-span-2 space-y-3">
                         <label className="label-executive">Hijos (Nombres separados por coma)</label>
                         <input className="input-core" placeholder="Ej. Mateo, Sofía" value={formData.children} onChange={e => setFormData({...formData, children: e.target.value})} />
                       </div>
-                      <div className="col-span-2 p-6 rounded-2xl bg-primary/5 border border-primary/10">
+                      <div className="col-span-1 md:col-span-2 p-4 lg:p-6 rounded-2xl bg-primary/5 border border-primary/10">
                         <p className="text-[10px] text-primary font-black uppercase tracking-[0.2em] mb-2 font-mono italic">Nota de Inteligencia:</p>
                         <p className="text-xs text-muted-foreground leading-relaxed">Saber los nombres de su familia te permite un rompehielo Nivel 3. Úsalo con discreción ejecutiva.</p>
                       </div>
@@ -1211,7 +1211,7 @@ const ContactModal = ({
                     <button 
                       type="button"
                       onClick={() => setActiveTab(activeTab === 'int' ? 'intl' : 'prof')}
-                      className="px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-white transition-all"
+                      className="px-6 lg:px-8 py-3 lg:py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-white transition-all"
                     >
                       Atrás
                     </button>
@@ -1220,12 +1220,12 @@ const ContactModal = ({
                     <button 
                       type="button"
                       onClick={() => setActiveTab(activeTab === 'prof' ? 'intl' : 'int')}
-                      className="bg-zinc-800 text-white px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-700 transition-all border border-white/5 shadow-xl"
+                      className="bg-zinc-800 text-white px-6 lg:px-10 py-3 lg:py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-700 transition-all border border-white/5 shadow-xl"
                     >
                       Siguiente
                     </button>
                   ) : (
-                    <button type="submit" className="bg-primary text-white px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest glow-red hover:scale-105 active:scale-95 transition-all shadow-xl">
+                    <button type="submit" className="bg-primary text-white px-6 lg:px-10 py-3 lg:py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest glow-red hover:scale-105 active:scale-95 transition-all shadow-xl">
                       {contact ? t('dashboard.saveChanges') : 'Completar Perfil'}
                     </button>
                   )}
