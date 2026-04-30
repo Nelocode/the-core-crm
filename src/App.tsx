@@ -466,21 +466,21 @@ const Dashboard = ({ onExpandContact, forceSelectedContactId, appContacts, setIs
   onEditContact: (c: Contact) => void
 }) => {
   const { t } = useTranslation();
-  const [selectedMeeting, setSelectedMeeting] = useState(meetings[0]);
+  const [selectedMeeting, setSelectedMeeting] = useState(meetings?.[0] || null);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
 
   // Sync with external selection (Command Palette)
   useEffect(() => {
     if (forceSelectedContactId) {
       setSelectedContactId(forceSelectedContactId);
-      const meetingWithContact = meetings.find(m => m.attendees.includes(forceSelectedContactId));
+      const meetingWithContact = meetings?.find(m => m.attendees.includes(forceSelectedContactId));
       if (meetingWithContact) setSelectedMeeting(meetingWithContact);
     }
   }, [forceSelectedContactId]);
   
   const activeContact = selectedContactId 
     ? appContacts.find(c => c.id === selectedContactId) 
-    : appContacts.find(c => c.id === selectedMeeting.attendees[0]);
+    : (selectedMeeting?.attendees?.[0] ? appContacts.find(c => c.id === selectedMeeting.attendees[0]) : appContacts[0]);
 
   return (
     <div className="flex flex-col h-full max-w-[1600px] mx-auto overflow-x-hidden overflow-y-auto lg:overflow-hidden pb-24 lg:pb-0">
@@ -516,7 +516,7 @@ const Dashboard = ({ onExpandContact, forceSelectedContactId, appContacts, setIs
               <div 
                 key={meeting.id}
                 className={`p-6 rounded-xl border transition-all cursor-pointer ${
-                  selectedMeeting.id === meeting.id ? 'border-primary bg-primary/5' : 'border-border glass hover:border-muted-foreground'
+                  selectedMeeting?.id === meeting.id ? 'border-primary bg-primary/5' : 'border-border glass hover:border-muted-foreground'
                 }`}
                 onClick={() => {
                   setSelectedMeeting(meeting);
