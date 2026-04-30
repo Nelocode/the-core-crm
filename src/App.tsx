@@ -25,7 +25,8 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, isToday } from 'date-fns';
-import { n8nService } from './services/n8nService';
+import { n8nService, type InvestigateResult } from './services/n8nService';
+import { Camera } from 'lucide-react';
 import { contacts, meetings, mockAIBriefings } from './data';
 import { translations } from './translations';
 import type { Language } from './translations';
@@ -758,6 +759,7 @@ const ContactModal = ({
   const [isInvestigating, setIsInvestigating] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [investigateResults, setInvestigateResults] = useState<InvestigateResult | null>(null);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -827,14 +829,7 @@ const ContactModal = ({
     setIsInvestigating(true);
     try {
       const result = await n8nService.investigateContact(formData.name, formData.company);
-      
-      setFormData(prev => ({
-        ...prev,
-        location: result.location || prev.location,
-        hobbies: result.hobbies ? result.hobbies.join(', ') : prev.hobbies,
-        personalGoal: result.notes || prev.personalGoal,
-        relationshipScore: result.relationshipScore || prev.relationshipScore
-      }));
+      setInvestigateResults(result);
     } catch (error) {
       console.error('Failed to investigate contact:', error);
     } finally {
@@ -1060,9 +1055,94 @@ const ContactModal = ({
                   <p className="text-[10px] font-black uppercase tracking-widest">Error de Inteligencia</p>
                   <p className="text-xs font-bold opacity-90">{scanError}</p>
                 </div>
+                  </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Investigation Audit Overlay */}
+          <AnimatePresence>
+            {investigateResults && (
+              <motion.div 
+                initial={{ opacity: 0, y: 50 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 50 }}
+                className="absolute inset-0 z-[100] bg-zinc-950/95 backdrop-blur-3xl flex flex-col p-6 lg:p-10"
+              >
+                <div className="flex justify-between items-center mb-8">
+                  <div>
+                    <h3 className="text-2xl lg:text-3xl font-black tracking-tighter text-white uppercase flex items-center gap-3">
+                      <Sparkles className="text-primary" /> Auditoría Humana
+                    </h3>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">Selecciona los datos encontrados para guardar</p>
+                  </div>
+                  <button onClick={() => setInvestigateResults(null)} className="p-2 bg-white/5 rounded-full hover:bg-white/10 transition-all">
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto no-scrollbar space-y-4">
+                  {['avatar', 'role', 'location', 'notes'].map((field) => {
+                    const val = investigateResults[field as keyof typeof investigateResults];
+                    if (!val) return null;
+                    return (
+                      <div key={field} className="bg-white/5 border border-white/10 p-4 rounded-2xl flex items-center justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] uppercase text-primary font-black tracking-widest mb-1">{field === 'notes' ? 'Bio / Notas' : field}</p>
+                          <p className="text-sm text-white truncate">{typeof val === 'string' ? val : Array.isArray(val) ? val.join(', ') : ''}</p>
+                        </div>
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            setFormData(prev => ({ ...prev, [field === 'notes' ? 'personalGoal' : field]: val }));
+                            setInvestigateResults(prev => ({ ...prev, [field]: undefined }) as any);
+                          }}
+                          className="px-4 py-2 bg-primary/20 text-primary border border-primary/30 rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-primary hover:text-white transition-all whitespace-nowrap"
+                        >
+                          Aprobar
+                        </button>
+                      </div>
+                    );
+                  })}
+                  
+                  {investigateResults.hobbies && investigateResults.hobbies.length > 0 && (
+                    <div className="bg-white/5 border border-white/10 p-4 rounded-2xl flex items-center justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] uppercase text-primary font-black tracking-widest mb-1">Hobbies / Intereses</p>
+                        <p className="text-sm text-white truncate">{investigateResults.hobbies.join(', ')}</p>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setFormData(prev => ({ ...prev, hobbies: investigateResults.hobbies!.join(', ') }));
+                          setInvestigateResults(prev => ({ ...prev, hobbies: undefined }) as any);
+                        }}
+                        className="px-4 py-2 bg-primary/20 text-primary border border-primary/30 rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-primary hover:text-white transition-all whitespace-nowrap"
+                      >
+                        Aprobar
+                      </button>
+                    </div>
+                  )}
+
+                  {!['avatar', 'role', 'location', 'notes', 'hobbies'].some(k => investigateResults[k as keyof typeof investigateResults]) && (
+                    <div className="text-center py-10 text-muted-foreground text-sm font-medium">
+                      Todos los datos procesados o no se encontró información adicional.
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-6 mt-auto border-t border-white/10 flex justify-end">
+                  <button 
+                    type="button"
+                    onClick={() => setInvestigateResults(null)}
+                    className="bg-zinc-800 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-700 transition-all border border-white/5"
+                  >
+                    Volver al Formulario
+                  </button>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
+
           {/* Header & Tabs Navigation */}
           <div className="p-6 lg:p-10 pb-0 lg:pb-0 space-y-6 lg:space-y-8 flex-shrink-0">
             <div className="flex justify-between items-start">
@@ -1083,7 +1163,7 @@ const ContactModal = ({
                   capture="environment"
                   onChange={handleCardFileChange} 
                 />
-                {!contact && (
+                {!contact && (formData.name || formData.company) && (
                   <button 
                     onClick={handleCardScan}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-white hover:bg-white/10 transition-all"
@@ -1129,6 +1209,30 @@ const ContactModal = ({
                 >
                   {activeTab === 'prof' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+                      {!contact && !formData.name && !formData.company && (
+                        <div className="col-span-1 md:col-span-2 mb-2 space-y-6">
+                          <button 
+                            type="button"
+                            onClick={handleCardScan}
+                            className="w-full relative group overflow-hidden rounded-[2rem] bg-gradient-to-br from-primary/20 to-primary/5 border-2 border-primary/30 p-10 lg:p-12 flex flex-col items-center justify-center gap-6 hover:border-primary transition-all glow-red shadow-2xl"
+                          >
+                            <div className="absolute inset-0 bg-primary/10 group-hover:bg-primary/20 transition-colors" />
+                            <div className="w-20 h-20 lg:w-24 lg:h-24 bg-primary rounded-full flex items-center justify-center text-white shadow-glow group-hover:scale-110 transition-transform">
+                              <Camera size={40} className="lg:w-12 lg:h-12" />
+                            </div>
+                            <div className="text-center relative z-10">
+                              <h3 className="text-xl lg:text-2xl font-black text-white uppercase tracking-widest">Tomar Foto de Tarjeta</h3>
+                              <p className="text-[10px] lg:text-xs text-primary/80 mt-2 font-medium uppercase tracking-widest">Extracción Mágica + GPS</p>
+                            </div>
+                          </button>
+                          
+                          <div className="flex items-center gap-4 px-4">
+                            <div className="h-[1px] flex-1 bg-white/10"></div>
+                            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-zinc-500">O crea el perfil manualmente</span>
+                            <div className="h-[1px] flex-1 bg-white/10"></div>
+                          </div>
+                        </div>
+                      )}
                       <div className="col-span-1 md:col-span-2 space-y-3">
                         <label className="label-executive flex justify-between">
                           Nombre Completo
