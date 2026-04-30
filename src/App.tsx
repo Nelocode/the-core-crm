@@ -1552,8 +1552,6 @@ const ContactModal = ({
 };
 
 
-};
-
 const ContactsView = ({ 
   appContacts, 
   onExpandContact,
