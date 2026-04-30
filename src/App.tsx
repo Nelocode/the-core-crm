@@ -828,7 +828,12 @@ const ContactModal = ({
     if (!formData.name) return;
     setIsInvestigating(true);
     try {
-      const result = await n8nService.investigateContact(formData.name, formData.company);
+      const result = await n8nService.investigateContact({
+        name: formData.name, 
+        company: formData.company,
+        role: formData.role,
+        location: formData.location
+      });
       setInvestigateResults(result);
     } catch (error) {
       console.error('Failed to investigate contact:', error);
@@ -1233,20 +1238,20 @@ const ContactModal = ({
                           </div>
                         </div>
                       )}
-                      <div className="col-span-1 md:col-span-2 space-y-3">
-                        <label className="label-executive flex justify-between">
-                          Nombre Completo
-                          <button 
-                            type="button"
-                            onClick={handleAIInvestigate}
-                            disabled={!formData.name || isInvestigating}
-                            className={`flex items-center gap-1.5 transition-all ${isInvestigating ? 'text-primary' : 'text-zinc-600 hover:text-primary'}`}
-                          >
-                            <Sparkles size={10} className={isInvestigating ? 'animate-spin' : ''} />
-                            <span className="text-[8px] font-black">{isInvestigating ? 'Investigando...' : 'Enriquecer con IA'}</span>
-                          </button>
-                        </label>
-                        <input required className="input-core" placeholder="Ej. Alexander Pierce" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                      <div className="col-span-1 md:col-span-2 flex flex-col sm:flex-row items-end gap-4">
+                        <div className="space-y-3 flex-1 w-full">
+                          <label className="label-executive">Nombre Completo</label>
+                          <input required className="input-core" placeholder="Ej. Alexander Pierce" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                        </div>
+                        <button 
+                          type="button"
+                          onClick={handleAIInvestigate}
+                          disabled={!formData.name || isInvestigating}
+                          className={`w-full sm:w-auto h-[52px] flex items-center justify-center gap-2 px-6 rounded-xl border transition-all ${isInvestigating ? 'bg-primary/20 text-primary border-primary/30' : formData.name ? 'bg-primary/10 text-primary hover:bg-primary hover:text-white border-primary/30 glow-red' : 'bg-white/5 text-zinc-600 border-white/5'}`}
+                        >
+                          <Sparkles size={16} className={isInvestigating ? 'animate-spin' : ''} />
+                          <span className="text-[10px] font-black uppercase tracking-widest">{isInvestigating ? 'Buscando...' : 'Deep Search AI'}</span>
+                        </button>
                       </div>
                       <div className="space-y-3">
                         <label className="label-executive">Cargo / Role</label>

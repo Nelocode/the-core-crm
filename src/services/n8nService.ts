@@ -14,6 +14,8 @@ export interface ScanCardResult {
 }
 
 export interface InvestigateResult {
+  avatar?: string;
+  role?: string;
   location?: string;
   hobbies?: string[];
   notes?: string;
@@ -65,7 +67,7 @@ export const n8nService = {
   /**
    * Sends contact name/company to n8n for deep search enrichment
    */
-  async investigateContact(name: string, company?: string): Promise<InvestigateResult> {
+  async investigateContact(data: { name: string; company?: string; role?: string; location?: string }): Promise<InvestigateResult> {
     if (!INVESTIGATE_URL) {
       console.warn('n8n Investigate URL not configured, returning simulation data.');
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -80,7 +82,7 @@ export const n8nService = {
       const response = await fetch(INVESTIGATE_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, company })
+        body: JSON.stringify(data)
       });
       
       if (!response.ok) throw new Error('n8n investigation request failed');
