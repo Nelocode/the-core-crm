@@ -1822,6 +1822,20 @@ const ContactsView = ({
   );
 };
 
+// Wrapper to useTranslation hook safely
+const SidebarWrapper = ({ activeTab, setActiveTab, setIsAddModalOpen }: { 
+  activeTab: string, 
+  setActiveTab: (tab: string) => void,
+  setIsAddModalOpen: (open: boolean) => void
+}) => {
+  return <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} setIsAddModalOpen={setIsAddModalOpen} />;
+};
+
+const TranslationPlaceholder = () => {
+  const { t } = useTranslation();
+  return <p className="mono uppercase tracking-widest text-xs">{t('common.underConstruction')}</p>;
+};
+
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [expandedContact, setExpandedContact] = useState<Contact | null>(null);
@@ -2068,17 +2082,4 @@ export default function App() {
 
 
 
-// Wrapper to useTranslation hook safely
-const SidebarWrapper = ({ activeTab, setActiveTab, setIsAddModalOpen }: { 
-  activeTab: string, 
-  setActiveTab: (tab: string) => void,
-  setIsAddModalOpen: (open: boolean) => void
-}) => {
-  return <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} setIsAddModalOpen={setIsAddModalOpen} />;
-};
-
-const TranslationPlaceholder = () => {
-  const { t } = useTranslation();
-  return <p className="mono uppercase tracking-widest text-xs">{t('common.underConstruction')}</p>;
-};
 
