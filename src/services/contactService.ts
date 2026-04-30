@@ -10,8 +10,23 @@ interface PendingAction {
   timestamp: number;
 }
 
-const getQueue = (): PendingAction[] => JSON.parse(localStorage.getItem('contact_sync_queue') || '[]');
-const saveQueue = (queue: PendingAction[]) => localStorage.setItem('contact_sync_queue', JSON.stringify(queue));
+const getQueue = (): PendingAction[] => {
+  try {
+    const data = localStorage.getItem('contact_sync_queue');
+    return data ? JSON.parse(data) : [];
+  } catch (e) {
+    console.error('Failed to parse sync queue', e);
+    return [];
+  }
+};
+
+const saveQueue = (queue: PendingAction[]) => {
+  try {
+    localStorage.setItem('contact_sync_queue', JSON.stringify(queue));
+  } catch (e) {
+    console.error('Failed to save sync queue', e);
+  }
+};
 
 export const contactService = {
   async getAll(): Promise<Contact[]> {

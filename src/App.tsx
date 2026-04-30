@@ -1837,8 +1837,8 @@ export default function App() {
     const loadContacts = async () => {
       try {
         const data = await contactService.getAll();
-        if (data && data.length > 0) {
-          setAppContacts(data);
+        if (Array.isArray(data)) {
+          setAppContacts(data.length > 0 ? data : contacts);
         }
       } catch (error) {
         console.error('Failed to load contacts from server:', error);
