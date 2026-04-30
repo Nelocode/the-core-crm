@@ -797,13 +797,13 @@ const ContactModal = ({
         hobbies: contact.hobbies?.join(', ') || '',
         personalGoal: contact.notes || '',
         relationshipScore: contact.relationshipScore || 50,
-        captureMetadata: contact.captureMetadata
+        captureMetadata: contact.captureMetadata || { capturedAt: '', meetingLocation: '' }
       });
     } else {
       setFormData({
         name: '', role: '', company: '', email: '', phone: '', location: '', avatar: '', birthday: '', 
         spouseName: '', spouseBirthday: '', children: '', hobbies: '', 
-        personalGoal: '', relationshipScore: 50, captureMetadata: undefined
+        personalGoal: '', relationshipScore: 50, captureMetadata: { capturedAt: '', meetingLocation: '' }
       });
     }
   }, [contact, isOpen]);
@@ -923,6 +923,7 @@ const ContactModal = ({
 
       const captureMetadata = {
         capturedAt: new Date().toISOString(),
+        meetingLocation: lat && lng ? `GPS: ${lat.toFixed(4)}, ${lng.toFixed(4)}` : '',
         latitude: lat,
         longitude: lng
       };
@@ -1196,6 +1197,37 @@ const ContactModal = ({
                         <label className="label-executive">Cumpleaños</label>
                         <input type="date" className="input-core" value={formData.birthday} onChange={e => setFormData({...formData, birthday: e.target.value})} />
                       </div>
+                      <div className="col-span-1 md:col-span-2 mt-2 pt-6 border-t border-white/5 space-y-6">
+                        <h4 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">
+                          <Sparkles size={14} className="text-primary" /> Contexto del Encuentro
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+                          <div className="space-y-3">
+                            <label className="label-executive">Fecha y Hora del Encuentro</label>
+                            <input 
+                              type="datetime-local"
+                              className="input-core" 
+                              value={formData.captureMetadata?.capturedAt ? new Date(formData.captureMetadata.capturedAt).toISOString().slice(0,16) : ''} 
+                              onChange={e => setFormData({
+                                ...formData, 
+                                captureMetadata: { ...formData.captureMetadata, capturedAt: e.target.value ? new Date(e.target.value).toISOString() : '' } as any
+                              })} 
+                            />
+                          </div>
+                          <div className="space-y-3">
+                            <label className="label-executive">Lugar del Encuentro</label>
+                            <input 
+                              className="input-core" 
+                              placeholder="Ej. Restaurante Cipriani, GPS..." 
+                              value={formData.captureMetadata?.meetingLocation || ''} 
+                              onChange={e => setFormData({
+                                ...formData, 
+                                captureMetadata: { ...formData.captureMetadata, meetingLocation: e.target.value } as any
+                              })} 
+                            />
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
 
@@ -1269,15 +1301,6 @@ const ContactModal = ({
                   )}
                 </div>
               </div>
-              {formData.captureMetadata && (
-                <div className="px-6 lg:px-10 pb-6 lg:pb-8 flex justify-center">
-                  <p className="text-[9px] text-zinc-600 italic mono flex items-center gap-1.5">
-                    <Sparkles size={10} className="text-primary" />
-                    Capturado el {format(new Date(formData.captureMetadata.capturedAt), "dd/MM/yyyy HH:mm")}
-                    {formData.captureMetadata.latitude && ` • GPS 📍`}
-                  </p>
-                </div>
-              )}
             </form>
           </div>
         </motion.div>

@@ -11,6 +11,7 @@ export interface Interaction {
 
 export interface CaptureMetadata {
   capturedAt: string; // ISO date
+  meetingLocation?: string;
   latitude?: number;
   longitude?: number;
 }
