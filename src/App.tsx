@@ -791,6 +791,20 @@ const ContactModal = ({
   const [isTranscribing, setIsTranscribing] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const [suggestedAction, setSuggestedAction] = useState<{ type: string, label: string } | null>(null);
+
+  useEffect(() => {
+    const text = formData.personalGoal.toLowerCase();
+    if (text.includes('llamar') || text.includes('call')) {
+      setSuggestedAction({ type: 'call', label: '📞 Programar llamada' });
+    } else if (text.includes('reunion') || text.includes('reunión') || text.includes('meeting')) {
+      setSuggestedAction({ type: 'meeting', label: '📅 Agendar reunión' });
+    } else if (text.includes('recordar') || text.includes('remind')) {
+      setSuggestedAction({ type: 'note', label: '🔔 Crear recordatorio' });
+    } else {
+      setSuggestedAction(null);
+    }
+  }, [formData.personalGoal]);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -1228,6 +1242,33 @@ const ContactModal = ({
                           value={formData.personalGoal}
                           onChange={e => setFormData({...formData, personalGoal: e.target.value})}
                         />
+
+                        <AnimatePresence>
+                          {suggestedAction && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -10 }}
+                              className="flex justify-center"
+                            >
+                              <div className="bg-primary/10 border border-primary/20 px-4 py-2 rounded-2xl flex items-center gap-3 shadow-glow-sm">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-primary">Acción Detectada:</span>
+                                <span className="text-[10px] font-bold text-white uppercase tracking-widest">{suggestedAction.label}</span>
+                                <button 
+                                  type="button"
+                                  onClick={() => {
+                                    // Simulated acceptance: for now just visual feedback
+                                    setFormData(prev => ({ ...prev, personalGoal: `${prev.personalGoal}\n[ACCIÓN: ${suggestedAction.label}]` }));
+                                    setSuggestedAction(null);
+                                  }}
+                                  className="ml-2 w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center hover:scale-110 transition-all"
+                                >
+                                  <Check size={12} />
+                                </button>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </div>
                     </div>
 
