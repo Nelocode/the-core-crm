@@ -22,6 +22,7 @@ export interface Contact {
   role: string;
   company: string;
   email: string;
+  website?: string;
   phone?: string;
   location: string;
   family?: {
@@ -34,6 +35,12 @@ export interface Contact {
   notes: string;
   avatar?: string;
   captureMetadata?: CaptureMetadata;
+  intelligence?: {
+    icebreaker?: string;
+    keyInterests?: string[];
+    lastInteractionType?: string;
+    communicationStyle?: string;
+  };
 }
 
 export type MeetingStatus = 'upcoming' | 'completed' | 'cancelled';

@@ -21,7 +21,8 @@ import {
   Heart,
   Trash2,
   Upload,
-  Edit3
+  Edit3,
+  CheckCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, isToday } from 'date-fns';
@@ -760,12 +761,15 @@ const ContactModal = ({
   const [isScanning, setIsScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
   const [investigateResults, setInvestigateResults] = useState<InvestigateResult | null>(null);
+  const [cardImages, setCardImages] = useState<File[]>([]);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     name: '',
     role: '',
     company: '',
     email: '',
+    website: '',
     phone: '',
     location: '',
     avatar: '',
@@ -776,7 +780,8 @@ const ContactModal = ({
     hobbies: '',
     personalGoal: '',
     relationshipScore: 50,
-    captureMetadata: undefined as any // will be typed as CaptureMetadata | undefined
+    captureMetadata: undefined as any, // will be typed as CaptureMetadata | undefined
+    intelligence: { icebreaker: '' }
   });
 
   useEffect(() => {
@@ -789,6 +794,7 @@ const ContactModal = ({
         role: contact.role || '',
         company: contact.company || '',
         email: contact.email || '',
+        website: contact.website || '',
         phone: contact.phone || '',
         location: contact.location || '',
         avatar: contact.avatar || '',
@@ -799,13 +805,15 @@ const ContactModal = ({
         hobbies: contact.hobbies?.join(', ') || '',
         personalGoal: contact.notes || '',
         relationshipScore: contact.relationshipScore || 50,
-        captureMetadata: contact.captureMetadata || { capturedAt: '', meetingLocation: '' }
+        captureMetadata: contact.captureMetadata || { capturedAt: '', meetingLocation: '' },
+        intelligence: { icebreaker: contact.intelligence?.icebreaker || '' }
       });
     } else {
       setFormData({
-        name: '', role: '', company: '', email: '', phone: '', location: '', avatar: '', birthday: '', 
+        name: '', role: '', company: '', email: '', website: '', phone: '', location: '', avatar: '', birthday: '', 
         spouseName: '', spouseBirthday: '', children: '', hobbies: '', 
-        personalGoal: '', relationshipScore: 50, captureMetadata: { capturedAt: '', meetingLocation: '' }
+        personalGoal: '', relationshipScore: 50, captureMetadata: { capturedAt: '', meetingLocation: '' },
+        intelligence: { icebreaker: '' }
       });
     }
   }, [contact, isOpen]);
@@ -832,7 +840,8 @@ const ContactModal = ({
         name: formData.name, 
         company: formData.company,
         role: formData.role,
-        location: formData.location
+        location: formData.location,
+        website: formData.website
       });
       setInvestigateResults(result);
     } catch (error) {
@@ -846,9 +855,16 @@ const ContactModal = ({
     cardInputRef.current?.click();
   };
 
-  const handleCardFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCardFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    
+    setCardImages(prev => [...prev, file]);
+    if (cardInputRef.current) cardInputRef.current.value = '';
+  };
+
+  const processCardImages = async () => {
+    if (cardImages.length === 0) return;
 
     setIsScanning(true);
     setScanError(null);
@@ -899,15 +915,15 @@ const ContactModal = ({
         });
       };
 
-      // Watchdog: Force stop scanning after 15s if it hangs
+      // Watchdog: Force stop scanning after 20s if it hangs
       const watchdog = setTimeout(() => {
         if (isScanning) {
           setIsScanning(false);
           setScanError('La conexión con la IA ha tardado demasiado.');
         }
-      }, 15000);
+      }, 20000);
 
-      const blob = await optimizeImage(file);
+      const blobs = await Promise.all(cardImages.map(f => optimizeImage(f)));
       
       // Intentar obtener ubicación GPS
       let lat, lng;
@@ -928,8 +944,8 @@ const ContactModal = ({
         longitude: lng
       };
 
-      // We send the blob directly to our service
-      const result = await n8nService.scanBusinessCard(blob as any);
+      // We send the blobs directly to our service
+      const result = await n8nService.scanBusinessCard(blobs as any);
       
       clearTimeout(watchdog);
       
@@ -943,12 +959,14 @@ const ContactModal = ({
         role: result.role || prev.role,
         company: result.company || prev.company,
         email: result.email || prev.email,
+        website: result.website || prev.website,
         phone: result.phone || prev.phone,
         location: result.location || prev.location,
         avatar: result.avatar || prev.avatar,
         captureMetadata
       }));
       setActiveTab('prof');
+      setCardImages([]);
     } catch (error: any) {
       console.error('Failed to process card:', error);
       setScanError(
@@ -959,8 +977,6 @@ const ContactModal = ({
       setTimeout(() => setScanError(null), 5000);
     } finally {
       setIsScanning(false);
-      // Reset input value to allow selecting same file again
-      if (cardInputRef.current) cardInputRef.current.value = '';
     }
   };
 
@@ -972,6 +988,7 @@ const ContactModal = ({
       role: formData.role,
       company: formData.company,
       email: formData.email,
+      website: formData.website,
       phone: formData.phone,
       location: formData.location || contact?.location || 'Remote',
       relationshipScore: formData.relationshipScore,
@@ -989,7 +1006,8 @@ const ContactModal = ({
       intelligence: {
         lastInteractionType: 'email',
         keyInterests: formData.hobbies ? formData.hobbies.split(',').map(s => s.trim()) : [],
-        communicationStyle: 'Professional'
+        communicationStyle: 'Professional',
+        icebreaker: formData.intelligence?.icebreaker || ''
       }
     };
     onSave(contactData);
@@ -1064,6 +1082,54 @@ const ContactModal = ({
             )}
           </AnimatePresence>
 
+          {/* Two-Sided Scan Staging Overlay */}
+          <AnimatePresence>
+            {cardImages.length > 0 && !isScanning && !investigateResults && (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="absolute inset-0 z-[110] bg-zinc-950/98 backdrop-blur-3xl flex flex-col p-6 lg:p-10 justify-center items-center text-center"
+              >
+                <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center text-primary mb-8 animate-pulse shadow-glow">
+                  <Camera size={40} />
+                </div>
+                <h3 className="text-3xl font-black text-white uppercase tracking-tighter mb-2">
+                  {cardImages.length === 1 ? 'Cara Frontal Lista' : 'Ambas Caras Listas'}
+                </h3>
+                <p className="text-sm text-zinc-400 mb-12 max-w-sm">
+                  {cardImages.length === 1 
+                    ? '¿La tarjeta tiene información importante en el reverso (ej. página web, teléfono)?' 
+                    : 'Imágenes capturadas. Listas para la unidad de inteligencia.'}
+                </p>
+                
+                <div className="flex flex-col gap-4 w-full max-w-sm">
+                  {cardImages.length === 1 && (
+                    <button 
+                      onClick={handleCardScan}
+                      className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl text-white font-black uppercase tracking-widest hover:bg-white/10 transition-all flex justify-center items-center gap-2"
+                    >
+                      <Camera size={18} />
+                      Añadir Reverso
+                    </button>
+                  )}
+                  <button 
+                    onClick={processCardImages}
+                    className="w-full py-4 bg-primary text-white rounded-2xl font-black uppercase tracking-widest shadow-glow hover:scale-[1.02] transition-all"
+                  >
+                    Extraer Datos Ahora
+                  </button>
+                  <button 
+                    onClick={() => setCardImages([])}
+                    className="w-full py-4 text-zinc-500 font-bold uppercase tracking-widest hover:text-white transition-all text-xs"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* Investigation Audit Overlay */}
           <AnimatePresence>
             {investigateResults && (
@@ -1086,19 +1152,25 @@ const ContactModal = ({
                 </div>
 
                 <div className="flex-1 overflow-y-auto no-scrollbar space-y-4">
-                  {['avatar', 'role', 'location', 'notes'].map((field) => {
+                  {['avatar', 'role', 'location', 'notes', 'icebreaker'].map((field) => {
                     const val = investigateResults[field as keyof typeof investigateResults];
                     if (!val) return null;
                     return (
                       <div key={field} className="bg-white/5 border border-white/10 p-4 rounded-2xl flex items-center justify-between gap-4">
                         <div className="flex-1 min-w-0">
-                          <p className="text-[10px] uppercase text-primary font-black tracking-widest mb-1">{field === 'notes' ? 'Bio / Notas' : field}</p>
+                          <p className="text-[10px] uppercase text-primary font-black tracking-widest mb-1">
+                            {field === 'notes' ? 'Bio / Notas' : field === 'icebreaker' ? 'Rompehielos Estratégico' : field}
+                          </p>
                           <p className="text-sm text-white truncate">{typeof val === 'string' ? val : Array.isArray(val) ? val.join(', ') : ''}</p>
                         </div>
                         <button 
                           type="button"
                           onClick={() => {
-                            setFormData(prev => ({ ...prev, [field === 'notes' ? 'personalGoal' : field]: val }));
+                            if (field === 'icebreaker') {
+                              setFormData(prev => ({ ...prev, intelligence: { ...prev.intelligence, icebreaker: val as string } }));
+                            } else {
+                              setFormData(prev => ({ ...prev, [field === 'notes' ? 'personalGoal' : field]: val }));
+                            }
                             setInvestigateResults(prev => ({ ...prev, [field]: undefined }) as any);
                           }}
                           className="px-4 py-2 bg-primary/20 text-primary border border-primary/30 rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-primary hover:text-white transition-all whitespace-nowrap"
@@ -1128,7 +1200,7 @@ const ContactModal = ({
                     </div>
                   )}
 
-                  {!['avatar', 'role', 'location', 'notes', 'hobbies'].some(k => investigateResults[k as keyof typeof investigateResults]) && (
+                  {!['avatar', 'role', 'location', 'notes', 'hobbies', 'icebreaker'].some(k => investigateResults[k as keyof typeof investigateResults]) && (
                     <div className="text-center py-10 text-muted-foreground text-sm font-medium">
                       Todos los datos procesados o no se encontró información adicional.
                     </div>
@@ -1266,12 +1338,31 @@ const ContactModal = ({
                         <input type="tel" className="input-core" placeholder="+1 234 567 890" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
                       </div>
                       <div className="space-y-3">
+                        <label className="label-executive flex justify-between">
+                          Página Web
+                          {formData.website && <a href={formData.website} target="_blank" rel="noreferrer" className="text-primary hover:underline uppercase text-[8px] tracking-widest font-bold">Abrir</a>}
+                        </label>
+                        <input className="input-core" placeholder="https://thecore.com" value={formData.website} onChange={e => setFormData({...formData, website: e.target.value})} />
+                      </div>
+                      <div className="space-y-3">
                         <label className="label-executive">Email Corporativo</label>
                         <input required type="email" className="input-core" placeholder="alex@company.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
                       </div>
-                      <div className="space-y-3">
-                        <label className="label-executive">Dirección</label>
+                      <div className="col-span-1 md:col-span-2 space-y-3">
+                        <label className="label-executive flex justify-between">
+                          Dirección / Ubicación
+                          {formData.captureMetadata?.meetingLocation && (
+                            <span className="text-primary/70 text-[8px] font-mono tracking-widest">{formData.captureMetadata.meetingLocation}</span>
+                          )}
+                        </label>
                         <input className="input-core" placeholder="Ciudad, País o Dirección Física" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} />
+                      </div>
+                      <div className="col-span-1 md:col-span-2 space-y-3">
+                        <label className="label-executive flex justify-between">
+                          Rompehielos / Icebreaker AI
+                          <Sparkles size={12} className="text-primary" />
+                        </label>
+                        <input className="input-core bg-primary/5 border-primary/20 text-primary placeholder:text-primary/30" placeholder="Un buen tema de conversación para la próxima reunión..." value={formData.intelligence?.icebreaker} onChange={e => setFormData({...formData, intelligence: { ...formData.intelligence, icebreaker: e.target.value }})} />
                       </div>
                       <div className="col-span-1 md:col-span-2 space-y-3 p-4 lg:p-6 rounded-2xl bg-white/[0.02] border border-white/5">
                         <label className="label-executive text-primary">Identidad Visual (Foto)</label>
@@ -1689,6 +1780,21 @@ export default function App() {
           }}
         />
 
+        {/* Toast Notification */}
+        <AnimatePresence>
+          {toastMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 50 }}
+              className="fixed bottom-6 right-6 z-[300] bg-primary text-white px-6 py-4 rounded-2xl shadow-glow font-black uppercase tracking-widest text-[10px] flex items-center gap-3"
+            >
+              <CheckCircle size={16} />
+              {toastMessage}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <ContactModal 
           isOpen={isAddModalOpen || !!contactToEdit}
           contact={contactToEdit}
@@ -1699,9 +1805,12 @@ export default function App() {
           onSave={(contactData) => {
             if (contactToEdit) {
               setAppContacts(prev => prev.map(c => c.id === contactData.id ? contactData : c));
+              setToastMessage('Perfil actualizado correctamente');
             } else {
               setAppContacts([contactData, ...appContacts]);
+              setToastMessage('Contacto creado correctamente');
             }
+            setTimeout(() => setToastMessage(null), 3000);
           }}
         />
 

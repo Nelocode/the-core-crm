@@ -8,6 +8,7 @@ export interface ScanCardResult {
   role?: string;
   company?: string;
   email?: string;
+  website?: string;
   phone?: string;
   location?: string;
   avatar?: string;
@@ -19,6 +20,7 @@ export interface InvestigateResult {
   location?: string;
   hobbies?: string[];
   notes?: string;
+  icebreaker?: string;
   relationshipScore?: number;
 }
 
@@ -28,9 +30,9 @@ const INVESTIGATE_URL = `${ENGINE_URL}/api/investigate`;
 
 export const n8nService = {
   /**
-   * Sends a base64 image to n8n for OCR processing
+   * Sends an array of base64 images/Blobs to n8n for OCR processing
    */
-  async scanBusinessCard(base64Image: string): Promise<ScanCardResult> {
+  async scanBusinessCard(images: (string | Blob)[]): Promise<ScanCardResult> {
     if (!SCAN_URL) {
       throw new Error('CONFIG_MISSING');
     }
@@ -38,16 +40,16 @@ export const n8nService = {
     try {
       const formData = new FormData();
       
-      // Handle both String (Base64) and Blob (Binary)
-      if (typeof base64Image === 'string' && base64Image.startsWith('data:')) {
-        const res = await fetch(base64Image);
-        const blob = await res.blob();
-        formData.append('image', blob, 'card.jpg');
-      } else if (base64Image instanceof Blob) {
-        formData.append('image', base64Image, 'card.jpg');
-      } else {
-        // Fallback for raw base64 or other types
-        formData.append('image', base64Image as any);
+      for (const [index, img] of images.entries()) {
+        if (typeof img === 'string' && img.startsWith('data:')) {
+          const res = await fetch(img);
+          const blob = await res.blob();
+          formData.append('images', blob, `card_${index}.jpg`);
+        } else if (img instanceof Blob) {
+          formData.append('images', img, `card_${index}.jpg`);
+        } else {
+          formData.append('images', img as any);
+        }
       }
 
       const response = await fetch(SCAN_URL, {
@@ -67,7 +69,7 @@ export const n8nService = {
   /**
    * Sends contact name/company to n8n for deep search enrichment
    */
-  async investigateContact(data: { name: string; company?: string; role?: string; location?: string }): Promise<InvestigateResult> {
+  async investigateContact(data: { name: string; company?: string; role?: string; location?: string; website?: string }): Promise<InvestigateResult> {
     if (!INVESTIGATE_URL) {
       console.warn('n8n Investigate URL not configured, returning simulation data.');
       await new Promise(resolve => setTimeout(resolve, 2000));
