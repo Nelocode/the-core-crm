@@ -1,20 +1,33 @@
 import { useState, createContext, useContext, useEffect, useRef, Component } from 'react';
 import React from 'react';
-  Command,
-  LayoutGrid,
-  List,
-  Briefcase,
-  Heart,
-  Trash2,
-  Upload,
-  Edit3,
-  CheckCircle,
-  AlertCircle,
-  Camera,
-  Mic,
-  Check,
-  ArrowRight
-} from 'lucide-react';
+const Users = () => <span>👥</span>;
+const Calendar = () => <span>📅</span>;
+const LayoutDashboard = () => <span>📊</span>;
+const Search = () => <span>🔍</span>;
+const Settings = () => <span>⚙️</span>;
+const ChevronRight = () => <span>▶️</span>;
+const Plus = () => <span>➕</span>;
+const History = () => <span>⏳</span>;
+const BrainCircuit = () => <span>🧠</span>;
+const Zap = () => <span>⚡</span>;
+const Globe = () => <span>🌐</span>;
+const Maximize2 = () => <span>🔲</span>;
+const X = () => <span>❌</span>;
+const Sparkles = () => <span>✨</span>;
+const Command = () => <span>⌘</span>;
+const LayoutGrid = () => <span>▦</span>;
+const List = () => <span>☰</span>;
+const Briefcase = () => <span>💼</span>;
+const Heart = () => <span>❤️</span>;
+const Trash2 = () => <span>🗑️</span>;
+const Upload = () => <span>📤</span>;
+const Edit3 = () => <span>📝</span>;
+const CheckCircle = () => <span>✅</span>;
+const AlertCircle = () => <span>⚠️</span>;
+const Camera = () => <span>📷</span>;
+const Mic = () => <span>🎤</span>;
+const Check = () => <span>✔️</span>;
+const ArrowRight = () => <span>➡️</span>;
 // import { motion, AnimatePresence } from 'framer-motion';
 const motion = { div: 'div', button: 'button', h2: 'h2', p: 'p', span: 'span', section: 'section' } as any;
 const AnimatePresence = ({ children }: any) => <>{children}</>;
