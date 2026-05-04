@@ -3,6 +3,9 @@
 
 const ENGINE_URL = import.meta.env.VITE_CORE_ENGINE_URL || 'https://automatizaciones-the-core-engine.vz27dz.easypanel.host';
 const API_URL = `${ENGINE_URL}/api/contacts`;
+const INTERACTIONS_URL = `${ENGINE_URL}/api/interactions`;
+const NOTES_URL = `${ENGINE_URL}/api/notes`;
+const TAGS_URL = `${ENGINE_URL}/api/tags`;
 
 const CACHE_KEY = 'core_contacts_v2';
 const QUEUE_KEY = 'core_sync_queue_v2';
@@ -304,5 +307,117 @@ export const contactService = {
    */
   getPendingCount(): number {
     return readQueue().length;
-  }
+  },
+
+  // ─── Interaction API ──────────────────────────────────────────────────────
+
+  /**
+   * Log a new interaction for a contact.
+   * The backend auto-recalculates the relationship score.
+   */
+  async addInteraction(contactId: string, data: {
+    type: string;
+    date: string;
+    summary: string;
+    sentiment?: string;
+    duration?: number;
+    location?: string;
+    isRemote?: boolean;
+    followUpDue?: string;
+    outcome?: string;
+  }): Promise<any> {
+    const res = await fetchWithRetry(`${INTERACTIONS_URL}/contact/${contactId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  },
+
+  /** Delete an interaction by ID */
+  async deleteInteraction(id: string): Promise<void> {
+    await fetchWithTimeout(`${INTERACTIONS_URL}/${id}`, { method: 'DELETE' });
+  },
+
+  /** Mark a follow-up as done */
+  async markFollowUpDone(id: string): Promise<any> {
+    const res = await fetchWithTimeout(`${INTERACTIONS_URL}/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ followUpDone: true })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  },
+
+  // ─── Notes API ────────────────────────────────────────────────────────────
+
+  /** Create a note for a contact */
+  async addNote(contactId: string, content: string, isPinned = false): Promise<any> {
+    const res = await fetchWithRetry(`${NOTES_URL}/contact/${contactId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content, isPinned })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  },
+
+  /** Update note content or pin state */
+  async updateNote(id: string, data: { content?: string; isPinned?: boolean }): Promise<any> {
+    const res = await fetchWithTimeout(`${NOTES_URL}/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  },
+
+  /** Delete a note */
+  async deleteNote(id: string): Promise<void> {
+    await fetchWithTimeout(`${NOTES_URL}/${id}`, { method: 'DELETE' });
+  },
+
+  // ─── Tags API ─────────────────────────────────────────────────────────────
+
+  /** Assign a tag to a contact by IDs */
+  async assignTag(tagId: string, contactId: string): Promise<any> {
+    const res = await fetchWithTimeout(`${TAGS_URL}/${tagId}/contacts/${contactId}`, { method: 'POST' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  },
+
+  /** Remove a tag from a contact */
+  async removeTag(tagId: string, contactId: string): Promise<void> {
+    await fetchWithTimeout(`${TAGS_URL}/${tagId}/contacts/${contactId}`, { method: 'DELETE' });
+  },
+
+  /** Get or create a tag by name and color */
+  async upsertTag(name: string, color?: string): Promise<any> {
+    const res = await fetchWithRetry(TAGS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, color })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  },
+
+  /** Fetch all available tags */
+  async getTags(): Promise<any[]> {
+    const res = await fetchWithTimeout(TAGS_URL, {}, 5000);
+    if (!res.ok) return [];
+    return res.json();
+  },
+
+  // ─── Contact Detail ───────────────────────────────────────────────────────
+
+  /** Fetch a fully hydrated contact (all interactions, notes, tags, org) */
+  async getDetail(id: string): Promise<any> {
+    const res = await fetchWithTimeout(`${API_URL}/${id}`, {}, 8000);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  },
 };

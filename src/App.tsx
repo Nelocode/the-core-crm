@@ -1,4 +1,4 @@
-import { useState, createContext, useContext, useEffect, useRef, Component } from 'react';
+import { useState, createContext, useContext, useEffect, useRef, Component, useCallback } from 'react';
 import React from 'react';
 import { 
   Users, 
@@ -28,7 +28,18 @@ import {
   Camera,
   Mic,
   Check,
-  ArrowRight
+  ArrowRight,
+  Phone,
+  Mail,
+  Linkedin,
+  FileText,
+  Pin,
+  Building2,
+  Tag,
+  Clock,
+  ChevronDown,
+  Send,
+  AlertTriangle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, isToday } from 'date-fns';
@@ -448,13 +459,17 @@ const filterContacts = (appContacts: Contact[], query: string) => {
   const lowerQuery = query.toLowerCase();
   
   // Smart Filters
-  if (lowerQuery.includes('company:')) {
-    const companyQuery = lowerQuery.split('company:')[1].trim();
-    return appContacts.filter(c => c.company.toLowerCase().includes(companyQuery));
+  if (lowerQuery.startsWith('company:')) {
+    const q = lowerQuery.split('company:')[1].trim();
+    return appContacts.filter(c => (c.company || '').toLowerCase().includes(q));
   }
-  if (lowerQuery.includes('role:')) {
-    const roleQuery = lowerQuery.split('role:')[1].trim();
-    return appContacts.filter(c => c.role.toLowerCase().includes(roleQuery));
+  if (lowerQuery.startsWith('role:')) {
+    const q = lowerQuery.split('role:')[1].trim();
+    return appContacts.filter(c => (c.role || '').toLowerCase().includes(q));
+  }
+  if (lowerQuery.startsWith('tag:')) {
+    const q = lowerQuery.split('tag:')[1].trim();
+    return appContacts.filter(c => c.tags?.some(t => t.name.toLowerCase().includes(q)));
   }
   if (lowerQuery.includes('score>')) {
     const scoreQuery = parseInt(lowerQuery.split('score>')[1].trim());
@@ -467,8 +482,9 @@ const filterContacts = (appContacts: Contact[], query: string) => {
 
   return appContacts.filter(c => 
     c.name.toLowerCase().includes(lowerQuery) || 
-    c.company.toLowerCase().includes(lowerQuery) ||
-    c.role.toLowerCase().includes(lowerQuery)
+    (c.company || '').toLowerCase().includes(lowerQuery) ||
+    (c.role || '').toLowerCase().includes(lowerQuery) ||
+    c.tags?.some(t => t.name.toLowerCase().includes(lowerQuery))
   );
 };
 
@@ -662,8 +678,276 @@ function ContactAvatar({
   );
 };
 
+
+// ─── Interaction Type Config ──────────────────────────────────────────────────
+
+const INTERACTION_ICONS: Record<string, React.ReactNode> = {
+  meeting:  <Users size={12} strokeWidth={2} />,
+  call:     <Phone size={12} strokeWidth={2} />,
+  email:    <Mail size={12} strokeWidth={2} />,
+  linkedin: <Linkedin size={12} strokeWidth={2} />,
+  event:    <Calendar size={12} strokeWidth={2} />,
+  note:     <FileText size={12} strokeWidth={2} />,
+};
+const INTERACTION_COLORS: Record<string, string> = {
+  meeting:  'bg-primary/20 text-primary border-primary/30',
+  call:     'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+  email:    'bg-blue-500/20 text-blue-400 border-blue-500/30',
+  linkedin: 'bg-sky-500/20 text-sky-400 border-sky-500/30',
+  event:    'bg-purple-500/20 text-purple-400 border-purple-500/30',
+  note:     'bg-amber-500/20 text-amber-400 border-amber-500/30',
+};
+const SENTIMENT_CFG: Record<string, { label: string; cls: string }> = {
+  positive: { label: 'Positivo', cls: 'bg-success/10 text-success' },
+  neutral:  { label: 'Neutral',  cls: 'bg-white/5 text-zinc-500' },
+  negative: { label: 'Negativo', cls: 'bg-primary/10 text-primary' },
+};
+
+// ─── InteractionLog ───────────────────────────────────────────────────────────
+
+function InteractionLog({ contactId, initialInteractions }: { contactId: string; initialInteractions: Interaction[] }) {
+  const [interactions, setInteractions] = useState<Interaction[]>(initialInteractions);
+  const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ type: 'meeting', date: new Date().toISOString().slice(0, 16), summary: '', sentiment: 'positive', location: '', followUpDue: '', outcome: '' });
+
+  useEffect(() => { setInteractions(initialInteractions); }, [contactId]);
+
+  const handleSave = async () => {
+    if (!form.summary.trim()) return;
+    setSaving(true);
+    try {
+      const created = await contactService.addInteraction(contactId, { ...form, date: new Date(form.date).toISOString(), followUpDue: form.followUpDue ? new Date(form.followUpDue).toISOString() : undefined, outcome: form.outcome || undefined, location: form.location || undefined });
+      setInteractions(prev => [created, ...prev]);
+      setShowForm(false);
+      setForm({ type: 'meeting', date: new Date().toISOString().slice(0, 16), summary: '', sentiment: 'positive', location: '', followUpDue: '', outcome: '' });
+    } catch (e) { console.error('[Core] Failed to save interaction:', e); }
+    finally { setSaving(false); }
+  };
+
+  const handleDelete = async (id: string) => {
+    try { await contactService.deleteInteraction(id); setInteractions(prev => prev.filter(i => i.id !== id)); }
+    catch (e) { console.error('[Core] Failed to delete interaction:', e); }
+  };
+
+  const handleMarkDone = async (id: string) => {
+    try { await contactService.markFollowUpDone(id); setInteractions(prev => prev.map(i => i.id === id ? { ...i, followUpDone: true } : i)); }
+    catch (e) { console.error('[Core] Failed to mark follow-up done:', e); }
+  };
+
+  return (
+    <div className="premium-card p-6 space-y-5">
+      <div className="flex justify-between items-center">
+        <h4 className="text-xs font-black uppercase tracking-[0.2em] text-white flex items-center gap-2.5">
+          <History size={14} strokeWidth={1.5} className="text-primary" />
+          Actividad
+          <span className="px-2 py-0.5 rounded-full bg-white/5 text-[9px] font-black text-zinc-500 mono">{interactions.length}</span>
+        </h4>
+        <button onClick={() => setShowForm(v => !v)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/10 border border-primary/30 text-primary text-[10px] font-black uppercase tracking-widest hover:bg-primary/20 transition-all">
+          <Plus size={12} strokeWidth={3} /> Registrar
+        </button>
+      </div>
+      <AnimatePresence>
+        {showForm && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+            <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-4 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mono block mb-1">Tipo</label>
+                  <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-primary/50">
+                    {['meeting','call','email','linkedin','event','note'].map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mono block mb-1">Fecha</label>
+                  <input type="datetime-local" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-primary/50" />
+                </div>
+              </div>
+              <div>
+                <label className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mono block mb-1">Resumen</label>
+                <textarea value={form.summary} onChange={e => setForm(f => ({ ...f, summary: e.target.value }))} placeholder="Discutimos la propuesta DACH..." rows={2} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-primary/50 resize-none" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mono block mb-1">Sentimiento</label>
+                  <select value={form.sentiment} onChange={e => setForm(f => ({ ...f, sentiment: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-primary/50">
+                    <option value="positive">Positivo</option><option value="neutral">Neutral</option><option value="negative">Negativo</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mono block mb-1">Resultado</label>
+                  <select value={form.outcome} onChange={e => setForm(f => ({ ...f, outcome: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-primary/50">
+                    <option value="">Sin definir</option><option value="next_meeting">Próxima reunión</option><option value="follow_up">Follow-up</option><option value="closed_deal">✓ Deal cerrado</option><option value="no_action">Sin acción</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mono block mb-1">Ubicación</label>
+                  <input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="Madrid / Zoom" className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-primary/50" />
+                </div>
+                <div>
+                  <label className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mono block mb-1">Follow-up (fecha)</label>
+                  <input type="date" value={form.followUpDue} onChange={e => setForm(f => ({ ...f, followUpDue: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-primary/50" />
+                </div>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button onClick={handleSave} disabled={saving || !form.summary.trim()} className="flex-1 bg-primary text-white py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-2">
+                  {saving ? <><div className="w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin" />Guardando...</> : <><Send size={12} />Guardar</>}
+                </button>
+                <button onClick={() => setShowForm(false)} className="px-4 py-2.5 rounded-xl bg-white/5 text-zinc-500 text-[11px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">Cancelar</button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {interactions.length === 0 && !showForm ? (
+        <div className="py-8 text-center border border-dashed border-white/5 rounded-2xl">
+          <History size={28} className="mx-auto text-zinc-800 mb-3" />
+          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Sin historial</p>
+          <button onClick={() => setShowForm(true)} className="mt-2 text-[10px] text-primary hover:underline font-bold">+ Primera interacción</button>
+        </div>
+      ) : (
+        <div className="relative pl-6 space-y-5 before:content-[''] before:absolute before:left-[9px] before:top-1 before:bottom-1 before:w-px before:bg-white/5">
+          {interactions.map((ix, idx) => {
+            const overdue = !ix.followUpDone && ix.followUpDue ? new Date(ix.followUpDue) < new Date() : false;
+            const iconCls = INTERACTION_COLORS[ix.type] || 'bg-white/5 text-zinc-400 border-white/10';
+            const sentCfg = ix.sentiment ? SENTIMENT_CFG[ix.sentiment] : null;
+            return (
+              <motion.div key={ix.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.04 }} className={`relative group ${idx > 0 ? 'opacity-60 hover:opacity-100 transition-opacity' : ''}`}>
+                <div className={`absolute -left-6 top-1 w-[11px] h-[11px] rounded-full border-2 border-background z-10 ${idx === 0 ? 'bg-primary shadow-[0_0_8px_rgba(249,17,23,0.5)]' : 'bg-zinc-800'}`} />
+                <div className="flex justify-between items-start mb-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[9px] font-black uppercase tracking-widest ${iconCls}`}>{INTERACTION_ICONS[ix.type]}{ix.type}</span>
+                    {sentCfg && <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase mono ${sentCfg.cls}`}>{sentCfg.label}</span>}
+                    {ix.outcome === 'closed_deal' && <span className="text-[9px] font-black px-2 py-0.5 rounded uppercase mono bg-emerald-500/10 text-emerald-400">✓ Deal</span>}
+                  </div>
+                  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-2">
+                    <span className="text-[9px] text-zinc-600 mono">{format(new Date(ix.date), 'dd MMM yy')}</span>
+                    <button onClick={() => handleDelete(ix.id!)} className="text-zinc-700 hover:text-primary transition-colors"><Trash2 size={11} /></button>
+                  </div>
+                </div>
+                <p className="text-sm font-semibold text-white leading-snug">{ix.summary}</p>
+                <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                  {ix.location && <span className="text-[9px] text-zinc-600 mono flex items-center gap-1"><Globe size={9} />{ix.location}</span>}
+                  {ix.followUpDue && !ix.followUpDone && (
+                    <button onClick={() => handleMarkDone(ix.id!)} className={`flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded border transition-all hover:scale-105 ${overdue ? 'bg-primary/10 text-primary border-primary/30 animate-pulse' : 'bg-amber-500/10 text-amber-400 border-amber-500/30'}`}>
+                      {overdue ? <AlertTriangle size={9} /> : <Clock size={9} />}
+                      {overdue ? 'Vencido' : 'Follow-up'}: {format(new Date(ix.followUpDue), 'dd MMM')}
+                      <Check size={8} className="ml-0.5" />
+                    </button>
+                  )}
+                  {ix.followUpDone && <span className="text-[9px] text-success mono flex items-center gap-1"><CheckCircle size={9} />Completado</span>}
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── NotesPanel ───────────────────────────────────────────────────────────────
+
+function NotesPanel({ contactId, initialNotes }: { contactId: string; initialNotes: Note[] }) {
+  const [notes, setNotes] = useState<Note[]>(initialNotes);
+  const [newContent, setNewContent] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState('');
+
+  useEffect(() => { setNotes(initialNotes); }, [contactId]);
+
+  const handleAdd = async () => {
+    if (!newContent.trim()) return;
+    setSaving(true);
+    try {
+      const created = await contactService.addNote(contactId, newContent.trim());
+      setNotes(prev => [created, ...prev]);
+      setNewContent('');
+    } catch (e) { console.error('[Core] Failed to add note:', e); }
+    finally { setSaving(false); }
+  };
+
+  const handleTogglePin = async (note: Note) => {
+    try {
+      const updated = await contactService.updateNote(note.id, { isPinned: !note.isPinned });
+      setNotes(prev => [...prev.map(n => n.id === note.id ? { ...n, isPinned: updated.isPinned } : n)].sort((a, b) => Number(b.isPinned) - Number(a.isPinned)));
+    } catch (e) { console.error('[Core] Failed to pin note:', e); }
+  };
+
+  const handleSaveEdit = async (id: string) => {
+    if (!editContent.trim()) return;
+    try {
+      const updated = await contactService.updateNote(id, { content: editContent.trim() });
+      setNotes(prev => prev.map(n => n.id === id ? { ...n, content: updated.content } : n));
+      setEditingId(null);
+    } catch (e) { console.error('[Core] Failed to update note:', e); }
+  };
+
+  const handleDelete = async (id: string) => {
+    try { await contactService.deleteNote(id); setNotes(prev => prev.filter(n => n.id !== id)); }
+    catch (e) { console.error('[Core] Failed to delete note:', e); }
+  };
+
+  const sorted = [...notes].sort((a, b) => Number(b.isPinned) - Number(a.isPinned));
+
+  return (
+    <div className="premium-card p-6 space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="w-7 h-7 rounded-full bg-amber-500/15 flex items-center justify-center">
+          <FileText size={13} strokeWidth={1.5} className="text-amber-400" />
+        </div>
+        <h4 className="text-xs font-black uppercase tracking-[0.2em] text-white">
+          Notas
+          <span className="ml-2 px-2 py-0.5 rounded-full bg-white/5 text-[9px] font-black text-zinc-500 mono">{notes.length}</span>
+        </h4>
+      </div>
+      <div className="flex gap-2">
+        <textarea value={newContent} onChange={e => setNewContent(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleAdd(); }} placeholder="Añadir nota… (⌘+Enter)" rows={2} className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/40 resize-none transition-colors" />
+        <button onClick={handleAdd} disabled={saving || !newContent.trim()} className="w-9 h-9 self-end rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-400 flex items-center justify-center hover:bg-amber-500/30 transition-all disabled:opacity-30 flex-shrink-0">
+          {saving ? <div className="w-3 h-3 border border-amber-400/40 border-t-amber-400 rounded-full animate-spin" /> : <Plus size={14} strokeWidth={3} />}
+        </button>
+      </div>
+      {sorted.length === 0 ? (
+        <p className="text-[10px] text-zinc-700 uppercase tracking-widest font-bold text-center py-3">Sin notas</p>
+      ) : (
+        <div className="space-y-2.5">
+          <AnimatePresence>
+            {sorted.map(note => (
+              <motion.div key={note.id} initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20 }} className={`group relative rounded-xl p-3 border transition-all ${note.isPinned ? 'bg-amber-500/5 border-amber-500/20' : 'bg-white/[0.02] border-white/5 hover:border-white/10'}`}>
+                {note.isPinned && <span className="absolute top-2 right-8 text-[8px] text-amber-500/60 font-black uppercase tracking-widest mono">Fijada</span>}
+                {editingId === note.id ? (
+                  <div className="space-y-2">
+                    <textarea value={editContent} onChange={e => setEditContent(e.target.value)} rows={2} className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-2 text-xs text-white focus:outline-none focus:border-amber-500/40 resize-none" autoFocus />
+                    <div className="flex gap-2">
+                      <button onClick={() => handleSaveEdit(note.id)} className="text-[10px] font-black text-amber-400 hover:text-amber-300">Guardar</button>
+                      <button onClick={() => setEditingId(null)} className="text-[10px] font-black text-zinc-600 hover:text-zinc-400">Cancelar</button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-zinc-300 leading-relaxed cursor-pointer hover:text-white transition-colors" onClick={() => { setEditingId(note.id); setEditContent(note.content); }}>{note.content}</p>
+                )}
+                <div className="flex items-center justify-between mt-2">
+                  <span className="text-[9px] text-zinc-700 mono">{format(new Date(note.createdAt), 'dd MMM yy')}</span>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => handleTogglePin(note)} className={`p-1 rounded transition-colors ${note.isPinned ? 'text-amber-400' : 'text-zinc-700 hover:text-amber-400'}`}><Pin size={11} /></button>
+                    <button onClick={() => handleDelete(note.id)} className="p-1 rounded text-zinc-700 hover:text-primary transition-colors"><Trash2 size={11} /></button>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Dashboard({ onExpandContact, forceSelectedContactId, appContacts, setIsAddModalOpen, onEditContact }: { 
   onExpandContact: (c: Contact) => void,
+
   forceSelectedContactId?: string | null,
   appContacts: Contact[],
   setIsAddModalOpen: (open: boolean) => void,
@@ -806,8 +1090,33 @@ function Dashboard({ onExpandContact, forceSelectedContactId, appContacts, setIs
                     <div>
                       <h3 className="text-4xl font-black tracking-tight mb-2">{activeContact.name}</h3>
                       <p className="text-copper-light font-bold uppercase text-[10px] tracking-[0.3em] mono">
-                        {activeContact.role} <span className="text-muted-foreground mx-2">•</span> {activeContact.company}
+                        {activeContact.role}{activeContact.company ? <><span className="text-muted-foreground mx-2">•</span>{activeContact.company}</> : null}
                       </p>
+                      {/* Organization badge */}
+                      {activeContact.organization && (
+                        <div className="flex items-center gap-1.5 mt-2">
+                          <Building2 size={11} className="text-zinc-500" />
+                          <span className="text-[10px] text-zinc-400 font-bold mono">{activeContact.organization.name}</span>
+                          {activeContact.organization.industry && (
+                            <span className="ml-1 px-2 py-0.5 rounded bg-white/5 border border-white/5 text-[9px] font-black uppercase tracking-widest text-zinc-600 mono">{activeContact.organization.industry}</span>
+                          )}
+                        </div>
+                      )}
+                      {/* Tags */}
+                      {activeContact.tags && activeContact.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {activeContact.tags.map(tag => (
+                            <span
+                              key={tag.id}
+                              className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border"
+                              style={tag.color ? { backgroundColor: `${tag.color}20`, borderColor: `${tag.color}50`, color: tag.color } : {}}
+                            >
+                              {!tag.color && <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 mr-1 align-middle" />}
+                              {tag.name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <div className="text-right flex flex-col items-end gap-4">
                       <button 
@@ -838,6 +1147,12 @@ function Dashboard({ onExpandContact, forceSelectedContactId, appContacts, setIs
 
               <AIBriefingCard contactId={activeContact.id} />
 
+              {/* Notes Panel — Real API */}
+              <NotesPanel
+                contactId={activeContact.id}
+                initialNotes={activeContact.notes_list ?? []}
+              />
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="premium-card p-6 border border-white/5">
                   <h5 className="text-[10px] text-muted-foreground uppercase mb-4 tracking-widest mono">{t('intelligence.familyArchitecture')}</h5>
@@ -867,52 +1182,11 @@ function Dashboard({ onExpandContact, forceSelectedContactId, appContacts, setIs
                 </div>
               </div>
 
-              {/* History Timeline */}
-              <div className="premium-card p-8 space-y-8">
-                <div className="flex justify-between items-center">
-                  <h4 className="text-xs font-black uppercase tracking-[0.2em] text-white flex items-center gap-3">
-                    <History size={16} strokeWidth={1.5} className="text-primary" /> {t('intelligence.interactionLog')}
-                  </h4>
-                  <button className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-white transition-colors mono">
-                    {t('intelligence.viewFullHistory')} →
-                  </button>
-                </div>
-                
-                <div className="relative pl-8 space-y-10 before:content-[''] before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[1px] before:bg-white/10">
-                  {activeContact.interactions?.map((interaction, idx) => (
-                    <div key={interaction.id} className={`relative ${idx > 0 ? 'opacity-50 hover:opacity-100 transition-opacity' : ''}`}>
-                      <div className={`absolute -left-[23px] top-1 w-[11px] h-[11px] rounded-full ${
-                        idx === 0 ? 'bg-primary glow-red shadow-[0_0_10px_rgba(249,17,23,0.5)]' : 'bg-zinc-800'
-                      } border-2 border-background z-10`} />
-                      
-                      <div className="flex justify-between items-start mb-2">
-                        <span className={`text-[10px] font-black mono uppercase tracking-widest ${idx === 0 ? 'text-primary' : 'text-muted-foreground'}`}>
-                          {idx === 0 ? t('intelligence.latestInteraction') : interaction.type}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground mono">{format(new Date(interaction.date), 'PPP')}</span>
-                      </div>
-                      <h5 className="text-sm font-bold text-white mb-2 leading-snug">{interaction.summary}</h5>
-                      <div className="flex items-center gap-4">
-                        <p className="text-[10px] text-muted-foreground flex items-center gap-1.5 mono uppercase font-medium">
-                          <Search size={10} strokeWidth={1.5} /> {interaction.location || t('intelligence.remote')}
-                        </p>
-                        <div className={`text-[9px] font-black px-2 py-0.5 rounded-sm uppercase mono ${
-                          interaction.sentiment === 'positive' ? 'bg-success/10 text-success' : 'bg-white/5 text-muted-foreground'
-                        }`}>
-                          {interaction.sentiment}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {(!activeContact.interactions || activeContact.interactions.length === 0) && (
-                    <div className="py-10 text-center border border-dashed border-white/5 rounded-2xl bg-white/5">
-                      <History size={32} className="mx-auto text-zinc-800 mb-4" />
-                      <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Sin historial de interacciones</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
+              {/* Interaction Log — Real API */}
+              <InteractionLog
+                contactId={activeContact.id}
+                initialInteractions={activeContact.interactions ?? []}
+              />
 
             </div>
           )}
@@ -1845,6 +2119,21 @@ function ContactsView({
                   <h4 className="text-xl font-black text-white truncate mb-1 tracking-tight">{contact.name}</h4>
                   <p className="text-xs font-bold text-copper-light uppercase tracking-widest truncate">{contact.role}</p>
                   <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-medium mt-1 truncate">{contact.company}</p>
+                  {/* Tag badges */}
+                  {contact.tags && contact.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {contact.tags.slice(0, 3).map(tag => (
+                        <span
+                          key={tag.id}
+                          className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border"
+                          style={tag.color ? { backgroundColor: `${tag.color}25`, borderColor: `${tag.color}50`, color: tag.color } : { backgroundColor: 'rgba(245,158,11,0.1)', borderColor: 'rgba(245,158,11,0.3)', color: '#F59E0B' }}
+                        >
+                          {tag.name}
+                        </span>
+                      ))}
+                      {contact.tags.length > 3 && <span className="text-[8px] text-zinc-600 mono font-bold self-center">+{contact.tags.length - 3}</span>}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
