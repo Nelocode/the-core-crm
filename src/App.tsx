@@ -496,6 +496,45 @@ const CommandPalette = ({
   );
 };
 
+// --- Atomic Components ---
+
+const ContactAvatar = ({ 
+  src, 
+  name, 
+  className = "w-12 h-12 rounded-2xl",
+  size = "md"
+}: { 
+  src?: string, 
+  name: string, 
+  className?: string,
+  size?: 'sm' | 'md' | 'lg' | 'xl'
+}) => {
+  const [hasError, setHasError] = useState(false);
+  const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+
+  if (!src || hasError) {
+    return (
+      <div className={`${className} bg-gradient-to-br from-zinc-800 to-zinc-950 border border-white/10 flex items-center justify-center relative overflow-hidden group`}>
+        <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+        <span className={`font-black tracking-tighter text-zinc-500 group-hover:text-primary transition-colors font-mono uppercase text-center leading-none ${
+          size === 'xl' ? 'text-8xl' : size === 'lg' ? 'text-4xl' : 'text-xl'
+        }`}>
+          {initials || <Users size={24} />}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <img 
+      src={src} 
+      className={`${className} object-cover border border-white/10 shadow-xl`} 
+      alt={name}
+      onError={() => setHasError(true)}
+    />
+  );
+};
+
 const Dashboard = ({ onExpandContact, forceSelectedContactId, appContacts, setIsAddModalOpen, onEditContact }: { 
   onExpandContact: (c: Contact) => void,
   forceSelectedContactId?: string | null,
@@ -758,42 +797,6 @@ const Dashboard = ({ onExpandContact, forceSelectedContactId, appContacts, setIs
 };
 
 
-const ContactAvatar = ({ 
-  src, 
-  name, 
-  className = "w-20 h-20",
-  size = "md"
-}: { 
-  src?: string, 
-  name: string, 
-  className?: string,
-  size?: 'sm' | 'md' | 'lg' | 'xl'
-}) => {
-  const [hasError, setHasError] = useState(false);
-  const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-
-  if (!src || hasError) {
-    return (
-      <div className={`${className} bg-gradient-to-br from-zinc-800 to-zinc-950 border border-white/10 flex items-center justify-center relative overflow-hidden group`}>
-        <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-        <span className={`font-black tracking-tighter text-zinc-500 group-hover:text-primary transition-colors font-mono uppercase text-center leading-none ${
-          size === 'xl' ? 'text-8xl' : size === 'lg' ? 'text-4xl' : 'text-xl'
-        }`}>
-          {initials || <Users size={24} />}
-        </span>
-      </div>
-    );
-  }
-
-  return (
-    <img 
-      src={src} 
-      className={`${className} object-cover border border-white/10 shadow-xl`} 
-      alt={name}
-      onError={() => setHasError(true)}
-    />
-  );
-};
 
 const CONTACT_CATEGORIES = [
   { id: 'private_investor', label: 'Private Investor', group: 'Retail' },
