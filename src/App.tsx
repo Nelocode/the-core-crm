@@ -34,9 +34,45 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { format, isToday } from 'date-fns';
 import { n8nService, type InvestigateResult } from './services/n8nService';
 import { contactService } from './services/contactService';
-import { contacts, meetings, mockAIBriefings } from './data';
-import { translations } from './translations';
-import type { Language } from './translations';
+type Language = 'en' | 'es';
+
+const contacts_fallback = [
+  {
+    id: '1',
+    name: 'Marcus Thorne',
+    role: 'CEO',
+    company: 'Thorne Industries',
+    email: 'marcus@thorne.com',
+    location: 'Zurich, Switzerland',
+    avatar: '/avatars/marcus.png',
+    family: { spouse: 'Elena', children: ['Sophia (8)', 'Leo (5)'] },
+    hobbies: ['Vintage Watches', 'Sailing', 'Quantum Computing'],
+    interactions: [
+      { id: 'int1', date: '2025-11-12T10:00:00Z', type: 'meeting', summary: 'Discussed expansion.', sentiment: 'positive' }
+    ],
+    relationshipScore: 88,
+    notes: 'Very detail-oriented.'
+  }
+];
+
+const meetings_fallback = [
+  { id: 'm1', title: 'Strategic Partnership', startTime: '2026-04-28T09:00:00Z', attendees: ['1'], status: 'upcoming' }
+];
+
+const translations_fallback = {
+  en: {
+    sidebar: { dashboard: 'Dashboard', contacts: 'Contacts' },
+    dashboard: { title: 'Dashboard', syncStatus: 'Synced', justNow: 'Just now', search: 'Search', contactIntelligence: 'Intelligence', meetingIntelligence: 'Briefing' },
+    intelligence: { relationshipScore: 'Score', familyArchitecture: 'Family', spouse: 'Spouse', children: 'Children' },
+    common: { underConstruction: 'Construction', intelligenceCRM: 'CRM' }
+  },
+  es: {
+    sidebar: { dashboard: 'Panel Control', contacts: 'Contactos' },
+    dashboard: { title: 'Panel Control', syncStatus: 'Sincronizado', justNow: 'Ahora', search: 'Buscar', contactIntelligence: 'Inteligencia', meetingIntelligence: 'Briefing' },
+    intelligence: { relationshipScore: 'Relación', familyArchitecture: 'Familia', spouse: 'Cónyuge', children: 'Hijos' },
+    common: { underConstruction: 'En Construcción', intelligenceCRM: 'CRM' }
+  }
+};
 
 // --- i18n Logic ---
 
@@ -60,7 +96,7 @@ const LanguageProvider = ({ children }: { children: React.ReactNode }) => {
 
   const t = (path: string) => {
     const keys = path.split('.');
-    let result: any = translations[language];
+    let result: any = (translations_fallback as any)[language];
     for (const key of keys) {
       result = result?.[key];
     }
@@ -1879,7 +1915,7 @@ export default function App() {
   const [expandedContact, setExpandedContact] = useState<Contact | null>(null);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [appContacts, setAppContacts] = useState<Contact[]>(contacts);
+  const [appContacts, setAppContacts] = useState<Contact[]>(contacts_fallback as Contact[]);
   const [contactToEdit, setContactToEdit] = useState<Contact | null>(null);
   const [externalSelectedContactId, setExternalSelectedContactId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -1890,7 +1926,7 @@ export default function App() {
       try {
         const data = await contactService.getAll();
         if (Array.isArray(data)) {
-          setAppContacts(data.length > 0 ? data : contacts);
+          setAppContacts(data.length > 0 ? data : contacts_fallback as Contact[]);
         }
       } catch (error) {
         console.error('Failed to load contacts from server:', error);
