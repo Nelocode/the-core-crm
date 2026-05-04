@@ -128,9 +128,5 @@ export const contactService = {
   }
 };
 
-// Auto-sync when coming back online
-if (typeof window !== 'undefined') {
-  window.addEventListener('online', () => contactService.syncOfflineData());
-  // Periodic check
-  setInterval(() => contactService.syncOfflineData(), 30000);
-}
+
+// Synchronization is now handled by the main application to ensure safe initialization order.

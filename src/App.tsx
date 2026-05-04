@@ -1933,6 +1933,16 @@ export default function App() {
       }
     };
     loadContacts();
+
+    // Synchronization is now handled by the main application to ensure safe initialization order.
+    const handleOnline = () => contactService.syncOfflineData();
+    window.addEventListener('online', handleOnline);
+    const syncInterval = setInterval(() => contactService.syncOfflineData(), 30000);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      clearInterval(syncInterval);
+    };
   }, []);
 
   useEffect(() => {
