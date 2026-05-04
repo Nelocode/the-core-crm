@@ -150,21 +150,7 @@ const ErrorDisplay = ({ error }: { error: Error }) => (
   </div>
 );
 
-class ErrorBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean, error: Error | null }> {
-  constructor(props: any) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-  static getDerivedStateFromError(error: Error) {
-    return { hasError: true, error };
-  }
-  render() {
-    if (this.state.hasError && this.state.error) {
-      return <ErrorDisplay error={this.state.error} />;
-    }
-    return this.props.children;
-  }
-}
+
 
 // --- Components ---
 
@@ -1970,7 +1956,6 @@ export default function App() {
   }, []);
 
   return (
-    <ErrorBoundary>
       <LanguageProvider>
       <div className="flex h-screen bg-black text-foreground selection:bg-primary/30 overflow-hidden relative">
         {/* Command Palette */}
@@ -2175,7 +2160,6 @@ export default function App() {
         </AnimatePresence>
       </div>
     </LanguageProvider>
-    </ErrorBoundary>
   );
 }
 
