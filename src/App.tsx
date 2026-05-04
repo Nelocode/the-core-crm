@@ -29,14 +29,27 @@ const Mic = () => <span>🎤</span>;
 const Check = () => <span>✔️</span>;
 const ArrowRight = () => <span>➡️</span>;
 // import { motion, AnimatePresence } from 'framer-motion';
-const motion = { div: 'div', button: 'button', h2: 'h2', p: 'p', span: 'span', section: 'section' } as any;
-const AnimatePresence = ({ children }: any) => <>{children}</>;
-import { format, isToday } from 'date-fns';
-import { n8nService, type InvestigateResult } from './services/n8nService';
-import { contactService } from './services/contactService';
-type Language = 'en' | 'es';
+var motion = { div: 'div', button: 'button', h2: 'h2', p: 'p', span: 'span', section: 'section' } as any;
+var AnimatePresence = ({ children }: any) => <>{children}</>;
+// import { format, isToday } from 'date-fns';
+const format = (date: any, fmt: string) => new Date(date).toLocaleDateString();
+const isToday = (date: any) => new Date(date).toDateString() === new Date().toDateString();
 
-const contacts_fallback = [
+// import { n8nService } from './services/n8nService';
+const n8nService = { investigate: async () => ({}) } as any;
+
+// import { contactService } from './services/contactService';
+const contactService = { 
+  getAll: async () => [], 
+  create: async (c: any) => c, 
+  update: async (id: any, c: any) => c, 
+  delete: async () => {},
+  syncOfflineData: async () => {}
+} as any;
+
+var Language = 'en' as any;
+
+var contacts_fallback = [
   {
     id: '1',
     name: 'Marcus Thorne',
@@ -55,11 +68,11 @@ const contacts_fallback = [
   }
 ];
 
-const meetings_fallback = [
+var meetings_fallback = [
   { id: 'm1', title: 'Strategic Partnership', startTime: '2026-04-28T09:00:00Z', attendees: ['1'], status: 'upcoming' }
 ];
 
-const translations_fallback = {
+var translations_fallback = {
   en: {
     sidebar: { dashboard: 'Dashboard', contacts: 'Contacts' },
     dashboard: { title: 'Dashboard', syncStatus: 'Synced', justNow: 'Just now', search: 'Search', contactIntelligence: 'Intelligence', meetingIntelligence: 'Briefing' },
