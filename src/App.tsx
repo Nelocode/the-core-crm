@@ -1882,14 +1882,25 @@ export default function App() {
   const [contactToEdit, setContactToEdit] = useState<Contact | null>(null);
   const [externalSelectedContactId, setExternalSelectedContactId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [pendingSync, setPendingSync] = useState(0);
 
-  // Persistence: Initial Load
+  // Persistence: Initial Load + Sync Management
   useEffect(() => {
+    // Initialize pending count from queue
+    setPendingSync(contactService.getPendingCount());
+
+    // Listen for queue updates from contactService
+    const handleQueueUpdate = (e: Event) => {
+      const count = (e as CustomEvent<{ count: number }>).detail.count;
+      setPendingSync(count);
+    };
+    window.addEventListener('core:queue-update', handleQueueUpdate);
+
     const loadContacts = async () => {
       try {
         const data = await contactService.getAll();
-        if (Array.isArray(data)) {
-          setAppContacts(data.length > 0 ? data : initialContacts);
+        if (Array.isArray(data) && data.length > 0) {
+          setAppContacts(data);
         }
       } catch (error) {
         console.error('Failed to load contacts from server:', error);
@@ -1897,13 +1908,11 @@ export default function App() {
     };
     loadContacts();
 
-    // Synchronization is now handled by the main application to ensure safe initialization order.
-    const handleOnline = () => contactService.syncOfflineData();
-    window.addEventListener('online', handleOnline);
-    const syncInterval = setInterval(() => contactService.syncOfflineData(), 30000);
+    // Periodic sync every 30s for any queued operations
+    const syncInterval = setInterval(() => contactService.syncNow(), 30000);
 
     return () => {
-      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('core:queue-update', handleQueueUpdate);
       clearInterval(syncInterval);
     };
   }, []);
@@ -1933,7 +1942,27 @@ export default function App() {
           }}
         />
 
-        {/* Toast Notification */}
+        {/* Sync Status Badge */}
+        <AnimatePresence>
+          {pendingSync > 0 && (
+            <motion.div
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 50 }}
+              className="fixed top-4 right-4 z-[300] bg-amber-500/20 border border-amber-500/50 text-amber-400 px-4 py-2 rounded-xl flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest backdrop-blur-md"
+            >
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              {pendingSync} pendiente{pendingSync > 1 ? 's' : ''} · sin sincronizar
+              <button
+                onClick={() => contactService.syncNow()}
+                className="ml-1 text-amber-300 hover:text-white transition-colors underline"
+              >
+                Reintentar
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <AnimatePresence>
           {toastMessage && (
             <motion.div
@@ -1968,9 +1997,13 @@ export default function App() {
               }
             } catch (error) {
               console.error('Failed to save contact:', error);
-              setToastMessage('Error al guardar contacto');
+              setToastMessage('⚠ Error al guardar contacto');
             }
-            setTimeout(() => setToastMessage(null), 3000);
+            // Show offline warning if there are pending operations
+            if (contactService.getPendingCount() > 0) {
+              setToastMessage('Guardado localmente — sincronizando...');
+            }
+            setTimeout(() => setToastMessage(null), 4000);
           }}
         />
 
