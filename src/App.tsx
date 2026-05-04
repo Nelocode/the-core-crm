@@ -1,4 +1,5 @@
-import { useState, createContext, useContext, useEffect, useRef } from 'react';
+import { useState, createContext, useContext, useEffect, useRef, Component } from 'react';
+import React from 'react';
 import { 
   Users, 
   Calendar, 
@@ -78,6 +79,43 @@ const useTranslation = () => {
   if (!context) throw new Error('useTranslation must be used within LanguageProvider');
   return context;
 };
+// --- Error Monitoring ---
+const ErrorDisplay = ({ error }: { error: Error }) => (
+  <div className="fixed inset-0 bg-zinc-950 flex items-center justify-center p-10 z-[500] font-mono">
+    <div className="max-w-2xl w-full bg-red-950/20 border border-red-500/30 rounded-3xl p-8 space-y-6">
+      <div className="flex items-center gap-4 text-red-500">
+        <AlertCircle size={32} />
+        <h1 className="text-xl font-black uppercase tracking-widest">CRITICAL SYSTEM FAILURE</h1>
+      </div>
+      <div className="bg-black/50 p-6 rounded-xl border border-white/5 overflow-auto max-h-[40vh]">
+        <p className="text-red-400 font-bold mb-2">Error: {error.message}</p>
+        <pre className="text-[10px] text-zinc-500 leading-relaxed">{error.stack}</pre>
+      </div>
+      <button 
+        onClick={() => window.location.reload()}
+        className="w-full bg-red-500 text-white font-black uppercase tracking-widest py-4 rounded-xl hover:bg-red-600 transition-all"
+      >
+        Reboot System
+      </button>
+    </div>
+  </div>
+);
+
+class ErrorBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean, error: Error | null }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  render() {
+    if (this.state.hasError && this.state.error) {
+      return <ErrorDisplay error={this.state.error} />;
+    }
+    return this.props.children;
+  }
+}
 
 // --- Components ---
 
@@ -1873,7 +1911,8 @@ export default function App() {
   }, []);
 
   return (
-    <LanguageProvider>
+    <ErrorBoundary>
+      <LanguageProvider>
       <div className="flex h-screen bg-black text-foreground selection:bg-primary/30 overflow-hidden relative">
         {/* Command Palette */}
         <CommandPalette 
@@ -2077,6 +2116,7 @@ export default function App() {
         </AnimatePresence>
       </div>
     </LanguageProvider>
+    </ErrorBoundary>
   );
 }
 
