@@ -30,7 +30,9 @@ import {
   Check,
   ArrowRight
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+// import { motion, AnimatePresence } from 'framer-motion';
+const motion = { div: 'div', button: 'button', h2: 'h2', p: 'p', span: 'span', section: 'section' } as any;
+const AnimatePresence = ({ children }: any) => <>{children}</>;
 import { format, isToday } from 'date-fns';
 import { n8nService, type InvestigateResult } from './services/n8nService';
 import { contactService } from './services/contactService';
