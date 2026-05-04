@@ -31,13 +31,12 @@ import {
   ArrowRight,
   Phone,
   Mail,
-  Linkedin,
+  ExternalLink,
   FileText,
   Pin,
   Building2,
   Tag,
   Clock,
-  ChevronDown,
   Send,
   AlertTriangle
 } from 'lucide-react';
@@ -685,7 +684,7 @@ const INTERACTION_ICONS: Record<string, React.ReactNode> = {
   meeting:  <Users size={12} strokeWidth={2} />,
   call:     <Phone size={12} strokeWidth={2} />,
   email:    <Mail size={12} strokeWidth={2} />,
-  linkedin: <Linkedin size={12} strokeWidth={2} />,
+  linkedin: <ExternalLink size={12} strokeWidth={2} />,
   event:    <Calendar size={12} strokeWidth={2} />,
   note:     <FileText size={12} strokeWidth={2} />,
 };
