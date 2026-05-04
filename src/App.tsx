@@ -119,11 +119,13 @@ class ErrorBoundary extends Component<{ children: React.ReactNode }, { hasError:
 
 // --- Components ---
 
-const Sidebar = ({ activeTab, setActiveTab, setIsAddModalOpen }: { 
+// --- Components ---
+
+function Sidebar({ activeTab, setActiveTab, setIsAddModalOpen }: { 
   activeTab: string, 
   setActiveTab: (tab: string) => void,
   setIsAddModalOpen: (open: boolean) => void
-}) => {
+}) {
   const { t, language, setLanguage } = useTranslation();
   const menuItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: t('sidebar.dashboard') },
@@ -213,11 +215,11 @@ const Sidebar = ({ activeTab, setActiveTab, setIsAddModalOpen }: {
   );
 };
 
-const MobileNav = ({ activeTab, setActiveTab, setIsAddModalOpen }: { 
+function MobileNav({ activeTab, setActiveTab, setIsAddModalOpen }: { 
   activeTab: string, 
   setActiveTab: (tab: string) => void,
   setIsAddModalOpen: (open: boolean) => void
-}) => {
+}) {
   const { t } = useTranslation();
   const menuItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: t('sidebar.dashboard') },
@@ -250,7 +252,7 @@ const MobileNav = ({ activeTab, setActiveTab, setIsAddModalOpen }: {
   );
 };
 
-const AIBriefingCard = ({ contactId }: { contactId: string }) => {
+function AIBriefingCard({ contactId }: { contactId: string }) {
   const { t } = useTranslation();
   const briefing = mockAIBriefings[contactId as keyof typeof mockAIBriefings];
   const contact = contacts.find(c => c.id === contactId);
@@ -345,26 +347,26 @@ const filterContacts = (appContacts: Contact[], query: string) => {
   );
 };
 
-const CommandPalette = ({ 
+function CommandPalette({ 
   isOpen, 
   onClose, 
-  onSelectContact,
-  contacts: appContacts 
+  contacts, 
+  onSelectContact 
 }: { 
   isOpen: boolean, 
   onClose: () => void, 
-  onSelectContact: (c: Contact) => void,
-  contacts: Contact[]
-}) => {
+  contacts: Contact[],
+  onSelectContact: (c: Contact) => void
+}) {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [hoveredContactId, setHoveredContactId] = useState<string | null>(null);
   
   const filteredContacts = query === '' 
-    ? appContacts.slice(0, 5) 
-    : filterContacts(appContacts, query);
+    ? contacts.slice(0, 5) 
+    : filterContacts(contacts, query);
 
-  const hoveredContact = appContacts.find(c => c.id === hoveredContactId);
+  const hoveredContact = contacts.find(c => c.id === hoveredContactId);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -498,7 +500,7 @@ const CommandPalette = ({
 
 // --- Atomic Components ---
 
-const ContactAvatar = ({ 
+function ContactAvatar({ 
   src, 
   name, 
   className = "w-12 h-12 rounded-2xl",
@@ -508,7 +510,7 @@ const ContactAvatar = ({
   name: string, 
   className?: string,
   size?: 'sm' | 'md' | 'lg' | 'xl'
-}) => {
+}) {
   const [hasError, setHasError] = useState(false);
   const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
@@ -535,13 +537,13 @@ const ContactAvatar = ({
   );
 };
 
-const Dashboard = ({ onExpandContact, forceSelectedContactId, appContacts, setIsAddModalOpen, onEditContact }: { 
+function Dashboard({ onExpandContact, forceSelectedContactId, appContacts, setIsAddModalOpen, onEditContact }: { 
   onExpandContact: (c: Contact) => void,
   forceSelectedContactId?: string | null,
   appContacts: Contact[],
   setIsAddModalOpen: (open: boolean) => void,
   onEditContact: (c: Contact) => void
-}) => {
+}) {
   const { t } = useTranslation();
   const [selectedMeeting, setSelectedMeeting] = useState(meetings?.[0] || null);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
@@ -809,17 +811,12 @@ const CONTACT_CATEGORIES = [
   { id: 'long_term_fund', label: 'Long Term Fund', group: 'Funds' },
 ];
 
-const ContactModal = ({ 
-  isOpen, 
-  onClose, 
-  onSave,
-  contact
-}: { 
+function ContactModal({ isOpen, onClose, onSave, contact }: { 
   isOpen: boolean, 
   onClose: () => void, 
-  onSave: (c: Contact) => void,
+  onSave: (data: Partial<Contact>) => void,
   contact?: Contact | null
-}) => {
+}) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'prof' | 'intl' | 'int'>('prof');
   const [quickAddStep, setQuickAddStep] = useState<'CAPTURE' | 'NOTES' | 'CATEGORY' | 'SUCCESS'>('CAPTURE');
@@ -1634,7 +1631,7 @@ const ContactModal = ({
 };
 
 
-const ContactsView = ({ 
+function ContactsView({ 
   appContacts, 
   onExpandContact,
   onAddContact,
@@ -1646,7 +1643,7 @@ const ContactsView = ({
   onAddContact: () => void,
   onEditContact: (c: Contact) => void,
   onDeleteContact: (id: string) => void
-}) => {
+}) {
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
