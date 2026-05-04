@@ -39,15 +39,142 @@ import { contactService } from './services/contactService';
 import { contacts as initialContacts, meetings, mockAIBriefings } from './data';
 import { translations } from './translations';
 
-// Types defined inline (TypeScript interfaces don't export as ESM values)
-type InteractionType = 'meeting' | 'call' | 'email' | 'event' | 'note';
-interface Interaction { id: string; date: string; type: InteractionType; summary: string; location?: string; sentiment: 'positive' | 'neutral' | 'negative'; }
-interface CaptureMetadata { capturedAt: string; meetingLocation?: string; latitude?: number; longitude?: number; }
-interface Contact { id: string; name: string; role: string; company: string; email: string; website?: string; phone?: string; location: string; family?: { spouse?: string; children?: string[] }; hobbies: string[]; interactions: Interaction[]; relationshipScore: number; notes: string; category?: string; avatar?: string; captureMetadata?: CaptureMetadata; intelligence?: { icebreaker?: string; keyInterests?: string[]; lastInteractionType?: string; communicationStyle?: string } }
-interface Meeting { id: string; title: string; startTime: string; endTime: string; attendees: string[]; location: string; description: string; status: 'upcoming' | 'completed' | 'cancelled'; }
-interface AIBriefing { contactId: string; icebreaker: string; strategicContext: string; emotionalPulse: 'positive' | 'neutral' | 'negative' | 'critical'; }
-interface InvestigateResult { avatar?: string; role?: string; location?: string; hobbies?: string[]; notes?: string; icebreaker?: string; relationshipScore?: number; }
+// Types defined inline — Irwin-style relational model (TypeScript interfaces don't export as ESM values)
+
+// ─── Supporting Types ───────────────────────────────────────────────────────
+type InteractionType = 'meeting' | 'call' | 'email' | 'linkedin' | 'event' | 'note';
+type SentimentType = 'positive' | 'neutral' | 'negative';
+type EngagementLevel = 'hot' | 'warm' | 'cold' | 'inactive';
+type CaptureSource = 'card_scan' | 'manual' | 'import' | 'linkedin';
 type Language = 'en' | 'es';
+
+// ─── Organization ───────────────────────────────────────────────────────────
+interface Organization {
+  id: string;
+  name: string;
+  domain?: string;
+  industry?: string;
+  size?: string;         // startup, sme, enterprise
+  website?: string;
+  location?: string;
+  description?: string;
+  logoUrl?: string;
+}
+
+// ─── Interaction ─────────────────────────────────────────────────────────────
+interface Interaction {
+  id: string;
+  type: InteractionType;
+  date: string;
+  summary: string;
+  sentiment?: SentimentType;
+  duration?: number;      // minutes
+  location?: string;
+  isRemote?: boolean;
+  followUpDue?: string;
+  followUpDone?: boolean;
+  outcome?: string;       // closed_deal, next_meeting, no_action, follow_up
+  contactId?: string;
+  meetingId?: string;
+}
+
+// ─── Tag ─────────────────────────────────────────────────────────────────────
+interface Tag {
+  id: string;
+  name: string;
+  color?: string;         // hex color
+}
+
+// ─── Note ────────────────────────────────────────────────────────────────────
+interface Note {
+  id: string;
+  content: string;
+  isPinned: boolean;
+  isPrivate: boolean;
+  contactId: string;
+  createdAt: string;
+}
+
+// ─── CaptureMetadata ─────────────────────────────────────────────────────────
+interface CaptureMetadata {
+  capturedAt: string;
+  meetingLocation?: string;
+  latitude?: number;
+  longitude?: number;
+  source?: CaptureSource;
+}
+
+// ─── Contact ─────────────────────────────────────────────────────────────────
+interface Contact {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  avatar?: string;
+  birthday?: string;
+  location?: string;
+  linkedin?: string;
+  twitter?: string;
+  // Professional
+  role?: string;
+  department?: string;
+  seniority?: string;       // c-suite, vp, director, manager, individual
+  // Legacy-compatible (mapped from organization relation by backend)
+  company?: string;
+  website?: string;
+  // Relationship intelligence
+  relationshipScore: number;
+  engagementLevel?: EngagementLevel;
+  communicationStyle?: string;
+  preferredChannel?: string;
+  // Personal intelligence
+  family?: { spouse?: string; children?: string[] };
+  hobbies: string[];
+  personalNotes?: string;
+  notes?: string;           // Legacy alias for personalNotes
+  // AI intelligence (from /api/investigate)
+  aiIcebreaker?: string;
+  aiStrategicContext?: string;
+  aiSentiment?: SentimentType;
+  aiKeyInterests?: string[];
+  // Legacy intelligence object (mapped by backend)
+  intelligence?: {
+    icebreaker?: string;
+    strategicContext?: string;
+    sentiment?: SentimentType;
+    keyInterests?: string[];
+    communicationStyle?: string;
+  };
+  // Relations (hydrated by backend)
+  organization?: Organization;
+  organizationId?: string;
+  interactions: Interaction[];
+  tags?: Tag[];
+  notes_list?: Note[];      // Named to avoid conflict with 'notes' string field
+  captureMetadata?: CaptureMetadata;
+  captureSource?: CaptureSource;
+  category?: string;
+}
+
+// ─── Meeting ──────────────────────────────────────────────────────────────────
+interface Meeting {
+  id: string;
+  title: string;
+  startTime: string;
+  endTime: string;
+  attendees: string[];      // Contact IDs
+  location?: string;
+  isRemote?: boolean;
+  description?: string;
+  status: 'upcoming' | 'completed' | 'cancelled';
+  agenda?: string;
+  outcomes?: string;
+}
+
+// ─── AI Types ─────────────────────────────────────────────────────────────────
+interface AIBriefing { contactId: string; icebreaker: string; strategicContext: string; emotionalPulse: SentimentType | 'critical'; }
+interface InvestigateResult { avatar?: string; role?: string; location?: string; hobbies?: string[]; notes?: string; icebreaker?: string; relationshipScore?: number; }
+
 
 
 // --- i18n Logic ---
