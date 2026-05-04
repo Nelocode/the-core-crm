@@ -1,20 +1,5 @@
 import { useState, createContext, useContext, useEffect, useRef, Component } from 'react';
 import React from 'react';
-import { 
-  Users, 
-  Calendar, 
-  LayoutDashboard, 
-  Search, 
-  Settings, 
-  ChevronRight,
-  Plus,
-  History,
-  BrainCircuit,
-  Zap,
-  Globe,
-  Maximize2,
-  X,
-  Sparkles,
   Command,
   LayoutGrid,
   List,
