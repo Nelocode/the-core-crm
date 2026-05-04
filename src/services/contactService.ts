@@ -1,4 +1,4 @@
-import { Contact } from '../types';
+// Contact type is defined in App.tsx - using any here for ESM compatibility
 
 const ENGINE_URL = import.meta.env.VITE_CORE_ENGINE_URL || 'https://automatizaciones-the-core-engine.vz27dz.easypanel.host';
 const API_URL = `${ENGINE_URL}/api/contacts`;

@@ -1,6 +1,6 @@
-import type { Contact, Meeting, AIBriefing } from './types';
+// Types are inferred from the data shape - no explicit imports needed for runtime
 
-export const contacts: Contact[] = [
+export const contacts = [
   {
     id: '1',
     name: 'Marcus Thorne',
@@ -80,7 +80,7 @@ export const contacts: Contact[] = [
   }
 ];
 
-export const meetings: Meeting[] = [
+export const meetings = [
   {
     id: 'm1',
     title: 'Strategic Partnership Deep Dive',
@@ -103,7 +103,7 @@ export const meetings: Meeting[] = [
   }
 ];
 
-export const mockAIBriefings: Record<string, AIBriefing> = {
+export const mockAIBriefings = {
   '1': {
     contactId: '1',
     icebreaker: "Hey Marcus, it's been a while since Zurich! How's Elena doing? I heard Sophia started violin lessons—she must be growing up so fast!",

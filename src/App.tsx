@@ -1,91 +1,54 @@
 import { useState, createContext, useContext, useEffect, useRef, Component } from 'react';
 import React from 'react';
-const Users = () => <span>👥</span>;
-const Calendar = () => <span>📅</span>;
-const LayoutDashboard = () => <span>📊</span>;
-const Search = () => <span>🔍</span>;
-const Settings = () => <span>⚙️</span>;
-const ChevronRight = () => <span>▶️</span>;
-const Plus = () => <span>➕</span>;
-const History = () => <span>⏳</span>;
-const BrainCircuit = () => <span>🧠</span>;
-const Zap = () => <span>⚡</span>;
-const Globe = () => <span>🌐</span>;
-const Maximize2 = () => <span>🔲</span>;
-const X = () => <span>❌</span>;
-const Sparkles = () => <span>✨</span>;
-const Command = () => <span>⌘</span>;
-const LayoutGrid = () => <span>▦</span>;
-const List = () => <span>☰</span>;
-const Briefcase = () => <span>💼</span>;
-const Heart = () => <span>❤️</span>;
-const Trash2 = () => <span>🗑️</span>;
-const Upload = () => <span>📤</span>;
-const Edit3 = () => <span>📝</span>;
-const CheckCircle = () => <span>✅</span>;
-const AlertCircle = () => <span>⚠️</span>;
-const Camera = () => <span>📷</span>;
-const Mic = () => <span>🎤</span>;
-const Check = () => <span>✔️</span>;
-const ArrowRight = () => <span>➡️</span>;
-// import { motion, AnimatePresence } from 'framer-motion';
-var motion = { div: 'div', button: 'button', h2: 'h2', p: 'p', span: 'span', section: 'section' } as any;
-var AnimatePresence = ({ children }: any) => <>{children}</>;
-// import { format, isToday } from 'date-fns';
-const format = (date: any, fmt: string) => new Date(date).toLocaleDateString();
-const isToday = (date: any) => new Date(date).toDateString() === new Date().toDateString();
+import { 
+  Users, 
+  Calendar, 
+  LayoutDashboard, 
+  Search, 
+  Settings, 
+  ChevronRight,
+  Plus,
+  History,
+  BrainCircuit,
+  Zap,
+  Globe,
+  Maximize2,
+  X,
+  Sparkles,
+  Command,
+  LayoutGrid,
+  List,
+  Briefcase,
+  Heart,
+  Trash2,
+  Upload,
+  Edit3,
+  CheckCircle,
+  AlertCircle,
+  Camera,
+  Mic,
+  Check,
+  ArrowRight
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { format, isToday } from 'date-fns';
 
-// import { n8nService } from './services/n8nService';
-const n8nService = { investigate: async () => ({}) } as any;
+import { n8nService } from './services/n8nService';
+import { contactService } from './services/contactService';
 
-// import { contactService } from './services/contactService';
-const contactService = { 
-  getAll: async () => [], 
-  create: async (c: any) => c, 
-  update: async (id: any, c: any) => c, 
-  delete: async () => {},
-  syncOfflineData: async () => {}
-} as any;
+import { contacts as initialContacts, meetings, mockAIBriefings } from './data';
+import { translations } from './translations';
 
-var Language = 'en' as any;
+// Types defined inline (TypeScript interfaces don't export as ESM values)
+type InteractionType = 'meeting' | 'call' | 'email' | 'event' | 'note';
+interface Interaction { id: string; date: string; type: InteractionType; summary: string; location?: string; sentiment: 'positive' | 'neutral' | 'negative'; }
+interface CaptureMetadata { capturedAt: string; meetingLocation?: string; latitude?: number; longitude?: number; }
+interface Contact { id: string; name: string; role: string; company: string; email: string; website?: string; phone?: string; location: string; family?: { spouse?: string; children?: string[] }; hobbies: string[]; interactions: Interaction[]; relationshipScore: number; notes: string; category?: string; avatar?: string; captureMetadata?: CaptureMetadata; intelligence?: { icebreaker?: string; keyInterests?: string[]; lastInteractionType?: string; communicationStyle?: string } }
+interface Meeting { id: string; title: string; startTime: string; endTime: string; attendees: string[]; location: string; description: string; status: 'upcoming' | 'completed' | 'cancelled'; }
+interface AIBriefing { contactId: string; icebreaker: string; strategicContext: string; emotionalPulse: 'positive' | 'neutral' | 'negative' | 'critical'; }
+interface InvestigateResult { avatar?: string; role?: string; location?: string; hobbies?: string[]; notes?: string; icebreaker?: string; relationshipScore?: number; }
+type Language = 'en' | 'es';
 
-var contacts_fallback = [
-  {
-    id: '1',
-    name: 'Marcus Thorne',
-    role: 'CEO',
-    company: 'Thorne Industries',
-    email: 'marcus@thorne.com',
-    location: 'Zurich, Switzerland',
-    avatar: '/avatars/marcus.png',
-    family: { spouse: 'Elena', children: ['Sophia (8)', 'Leo (5)'] },
-    hobbies: ['Vintage Watches', 'Sailing', 'Quantum Computing'],
-    interactions: [
-      { id: 'int1', date: '2025-11-12T10:00:00Z', type: 'meeting', summary: 'Discussed expansion.', sentiment: 'positive' }
-    ],
-    relationshipScore: 88,
-    notes: 'Very detail-oriented.'
-  }
-];
-
-var meetings_fallback = [
-  { id: 'm1', title: 'Strategic Partnership', startTime: '2026-04-28T09:00:00Z', attendees: ['1'], status: 'upcoming' }
-];
-
-var translations_fallback = {
-  en: {
-    sidebar: { dashboard: 'Dashboard', contacts: 'Contacts' },
-    dashboard: { title: 'Dashboard', syncStatus: 'Synced', justNow: 'Just now', search: 'Search', contactIntelligence: 'Intelligence', meetingIntelligence: 'Briefing' },
-    intelligence: { relationshipScore: 'Score', familyArchitecture: 'Family', spouse: 'Spouse', children: 'Children' },
-    common: { underConstruction: 'Construction', intelligenceCRM: 'CRM' }
-  },
-  es: {
-    sidebar: { dashboard: 'Panel Control', contacts: 'Contactos' },
-    dashboard: { title: 'Panel Control', syncStatus: 'Sincronizado', justNow: 'Ahora', search: 'Buscar', contactIntelligence: 'Inteligencia', meetingIntelligence: 'Briefing' },
-    intelligence: { relationshipScore: 'Relación', familyArchitecture: 'Familia', spouse: 'Cónyuge', children: 'Hijos' },
-    common: { underConstruction: 'En Construcción', intelligenceCRM: 'CRM' }
-  }
-};
 
 // --- i18n Logic ---
 
@@ -109,7 +72,7 @@ const LanguageProvider = ({ children }: { children: React.ReactNode }) => {
 
   const t = (path: string) => {
     const keys = path.split('.');
-    let result: any = (translations_fallback as any)[language];
+    let result: any = (translations as any)[language];
     for (const key of keys) {
       result = result?.[key];
     }
@@ -290,7 +253,7 @@ function MobileNav({ activeTab, setActiveTab, setIsAddModalOpen }: {
 function AIBriefingCard({ contactId }: { contactId: string }) {
   const { t } = useTranslation();
   const briefing = mockAIBriefings[contactId as keyof typeof mockAIBriefings];
-  const contact = contacts.find(c => c.id === contactId);
+  const contact = initialContacts.find(c => c.id === contactId);
 
   if (!briefing || !contact) return null;
 
@@ -866,19 +829,7 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
   const audioChunksRef = useRef<Blob[]>([]);
   const [suggestedAction, setSuggestedAction] = useState<{ type: string, label: string } | null>(null);
 
-  useEffect(() => {
-    const text = formData.personalGoal.toLowerCase();
-    if (text.includes('llamar') || text.includes('call')) {
-      setSuggestedAction({ type: 'call', label: '📞 Programar llamada' });
-    } else if (text.includes('reunion') || text.includes('reunión') || text.includes('meeting')) {
-      setSuggestedAction({ type: 'meeting', label: '📅 Agendar reunión' });
-    } else if (text.includes('recordar') || text.includes('remind')) {
-      setSuggestedAction({ type: 'note', label: '🔔 Crear recordatorio' });
-    } else {
-      setSuggestedAction(null);
-    }
-  }, [formData.personalGoal]);
-  
+  // formData must be declared BEFORE the useEffect that references it
   const [formData, setFormData] = useState({
     name: '',
     role: '',
@@ -899,6 +850,19 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
     intelligence: { icebreaker: '' },
     category: ''
   });
+
+  useEffect(() => {
+    const text = (formData.personalGoal || '').toLowerCase();
+    if (text.includes('llamar') || text.includes('call')) {
+      setSuggestedAction({ type: 'call', label: '📞 Programar llamada' });
+    } else if (text.includes('reunion') || text.includes('reunión') || text.includes('meeting')) {
+      setSuggestedAction({ type: 'meeting', label: '📅 Agendar reunión' });
+    } else if (text.includes('recordar') || text.includes('remind')) {
+      setSuggestedAction({ type: 'note', label: '🔔 Crear recordatorio' });
+    } else {
+      setSuggestedAction(null);
+    }
+  }, [formData.personalGoal]);
 
   useEffect(() => {
     if (isOpen) {
@@ -1914,7 +1878,7 @@ export default function App() {
   const [expandedContact, setExpandedContact] = useState<Contact | null>(null);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [appContacts, setAppContacts] = useState<Contact[]>(contacts_fallback as Contact[]);
+  const [appContacts, setAppContacts] = useState<Contact[]>(initialContacts);
   const [contactToEdit, setContactToEdit] = useState<Contact | null>(null);
   const [externalSelectedContactId, setExternalSelectedContactId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -1925,7 +1889,7 @@ export default function App() {
       try {
         const data = await contactService.getAll();
         if (Array.isArray(data)) {
-          setAppContacts(data.length > 0 ? data : contacts_fallback as Contact[]);
+          setAppContacts(data.length > 0 ? data : initialContacts);
         }
       } catch (error) {
         console.error('Failed to load contacts from server:', error);
