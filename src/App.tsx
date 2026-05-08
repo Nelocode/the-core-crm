@@ -1225,6 +1225,8 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
   const [cardImages, setCardImages] = useState<File[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [liveTranscript, setLiveTranscript] = useState('');
+  const recognitionRef = useRef<any>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const [suggestedAction, setSuggestedAction] = useState<{ type: string, label: string } | null>(null);
@@ -1344,6 +1346,14 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
     // But for the frictionless flow, we'll let the user decide when to move to notes
   };
 
+  const toggleRecording = async () => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      await startRecording();
+    }
+  };
+
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -1357,6 +1367,25 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
         }
       };
 
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'es-ES';
+        
+        recognition.onresult = (event: any) => {
+          let fullTranscript = '';
+          for (let i = 0; i < event.results.length; i++) {
+             fullTranscript += event.results[i][0].transcript;
+          }
+          setLiveTranscript(fullTranscript);
+        };
+        
+        recognitionRef.current = recognition;
+        recognition.start();
+      }
+
       mediaRecorder.onstop = async () => {
         const mimeType = mediaRecorderRef.current?.mimeType || 'audio/webm';
         const extension = mimeType.includes('mp4') ? 'mp4' : mimeType.includes('wav') ? 'wav' : 'webm';
@@ -1368,13 +1397,18 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
           setFormData(prev => ({ ...prev, personalGoal: prev.personalGoal ? `${prev.personalGoal}\n${text}` : text }));
         } catch (error) {
           console.error('Transcription failed:', error);
+          if (liveTranscript) {
+             setFormData(prev => ({ ...prev, personalGoal: prev.personalGoal ? `${prev.personalGoal}\n${liveTranscript}` : liveTranscript }));
+          }
         } finally {
           setIsTranscribing(false);
+          setLiveTranscript('');
         }
       };
 
       mediaRecorder.start();
       setIsRecording(true);
+      setLiveTranscript('');
     } catch (error) {
       console.error('Microphone access denied:', error);
     }
@@ -1384,8 +1418,14 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
-      // Stop all tracks to release the microphone
       mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+    }
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {
+        console.error(e);
+      }
     }
   };
 
@@ -1659,10 +1699,8 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
                           />
                         )}
                         <button 
-                          onMouseDown={startRecording}
-                          onMouseUp={stopRecording}
-                          onTouchStart={startRecording}
-                          onTouchEnd={stopRecording}
+                          type="button"
+                          onClick={toggleRecording}
                           className={`relative z-10 w-32 h-32 lg:w-40 lg:h-40 rounded-full flex items-center justify-center transition-all ${
                             isRecording ? 'bg-primary scale-110 shadow-glow' : 'bg-white/5 border border-white/10 hover:bg-white/10'
                           }`}
@@ -1673,14 +1711,15 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
                       
                       <div className="w-full max-w-md text-center space-y-4">
                         <p className="text-sm font-bold text-zinc-400">
-                          {isRecording ? 'Grabando...' : isTranscribing ? 'Procesando Inteligencia...' : 'Mantén pulsado para dictar notas sobre este contacto'}
+                          {isRecording ? 'Pulsa para detener grabación...' : isTranscribing ? 'Procesando Inteligencia...' : 'Pulsa para empezar a grabar notas'}
                         </p>
                         
                         <textarea 
                           className="w-full bg-white/[0.02] border border-white/5 rounded-2xl p-6 text-white text-sm italic min-h-[120px] focus:outline-none focus:border-primary/30 transition-all no-scrollbar"
                           placeholder="Las notas transcritas aparecerán aquí..."
-                          value={formData.personalGoal}
+                          value={isRecording || isTranscribing ? (formData.personalGoal ? formData.personalGoal + (liveTranscript ? '\n\n🎙️ ' + liveTranscript : '') : liveTranscript) : formData.personalGoal}
                           onChange={e => setFormData({...formData, personalGoal: e.target.value})}
+                          disabled={isRecording || isTranscribing}
                         />
 
                         <AnimatePresence>
@@ -1712,12 +1751,32 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
                       </div>
                     </div>
 
-                    <div className="mt-auto pt-8">
+                    <div className="mt-auto pt-8 flex flex-col gap-4">
+                      <div className="flex gap-4">
+                        <button 
+                          type="button"
+                          onClick={() => setQuickAddStep('CAPTURE')}
+                          className="w-1/3 bg-white/5 text-white py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] flex items-center justify-center hover:bg-white/10 transition-all text-xs"
+                        >
+                          Volver
+                        </button>
+                        <button 
+                          type="button"
+                          onClick={() => setQuickAddStep('CATEGORY')}
+                          className="w-2/3 bg-primary text-white py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] shadow-glow flex items-center justify-center gap-3 hover:scale-[1.02] transition-all text-xs"
+                        >
+                          Categorizar <ArrowRight size={20} />
+                        </button>
+                      </div>
                       <button 
-                        onClick={() => setQuickAddStep('CATEGORY')}
-                        className="w-full bg-primary text-white py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] shadow-glow flex items-center justify-center gap-3 hover:scale-[1.02] transition-all"
+                        type="button"
+                        onClick={(e) => {
+                          handleSubmit(e as any);
+                          setQuickAddStep('SUCCESS');
+                        }}
+                        className="w-full border border-white/10 text-zinc-400 py-4 rounded-[2rem] font-black uppercase tracking-[0.2em] hover:bg-white/5 hover:text-white transition-all text-[10px]"
                       >
-                        Categorizar <ArrowRight size={20} />
+                        Guardar Directamente
                       </button>
                     </div>
                   </motion.div>
@@ -1758,15 +1817,23 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
                       ))}
                     </div>
 
-                    <div className="mt-auto pt-8">
+                    <div className="mt-auto pt-8 flex gap-4">
                       <button 
+                        type="button"
+                        onClick={() => setQuickAddStep('NOTES')}
+                        className="w-1/3 bg-white/5 text-white py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] flex items-center justify-center hover:bg-white/10 transition-all text-xs"
+                      >
+                        Volver
+                      </button>
+                      <button 
+                        type="button"
                         onClick={(e) => {
                           handleSubmit(e as any);
                           setQuickAddStep('SUCCESS');
                         }}
-                        className="w-full bg-primary text-white py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] shadow-glow flex items-center justify-center gap-3 hover:scale-[1.02] transition-all"
+                        className="w-2/3 bg-primary text-white py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] shadow-glow flex items-center justify-center gap-3 hover:scale-[1.02] transition-all text-xs"
                       >
-                        Finalizar <ArrowRight size={20} />
+                        Guardar Contacto <Check size={20} />
                       </button>
                     </div>
                   </motion.div>
