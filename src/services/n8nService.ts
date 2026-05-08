@@ -98,10 +98,10 @@ export const n8nService = {
   /**
    * Transcribes audio blob using the Core Engine Whisper endpoint
    */
-  async transcribeAudio(audioBlob: Blob): Promise<string> {
+  async transcribeAudio(audioBlob: Blob, extension: string = 'webm'): Promise<string> {
     try {
       const formData = new FormData();
-      formData.append('audio', audioBlob, 'recording.webm');
+      formData.append('audio', audioBlob, `recording.${extension}`);
 
       const response = await fetch(`${ENGINE_URL}/api/transcribe`, {
         method: 'POST',

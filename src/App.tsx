@@ -1358,10 +1358,13 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
       };
 
       mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const mimeType = mediaRecorderRef.current?.mimeType || 'audio/webm';
+        const extension = mimeType.includes('mp4') ? 'mp4' : mimeType.includes('wav') ? 'wav' : 'webm';
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        if (audioChunksRef.current.length === 0) return;
         setIsTranscribing(true);
         try {
-          const text = await n8nService.transcribeAudio(audioBlob);
+          const text = await n8nService.transcribeAudio(audioBlob, extension);
           setFormData(prev => ({ ...prev, personalGoal: prev.personalGoal ? `${prev.personalGoal}\n${text}` : text }));
         } catch (error) {
           console.error('Transcription failed:', error);
