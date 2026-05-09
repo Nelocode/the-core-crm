@@ -1,4 +1,4 @@
-import { useState, createContext, useContext, useEffect, useRef, Component, useCallback } from 'react';
+import { useState, createContext, useContext, useEffect, useRef } from 'react';
 import React from 'react';
 import { 
   Users, 
@@ -21,7 +21,6 @@ import {
   Briefcase,
   Heart,
   Trash2,
-  Upload,
   Edit3,
   CheckCircle,
   AlertCircle,
@@ -166,25 +165,7 @@ interface Contact {
   category?: string;
 }
 
-// ─── Meeting ──────────────────────────────────────────────────────────────────
-interface Meeting {
-  id: string;
-  title: string;
-  startTime: string;
-  endTime: string;
-  attendees: string[];      // Contact IDs
-  location?: string;
-  isRemote?: boolean;
-  description?: string;
-  status: 'upcoming' | 'completed' | 'cancelled';
-  agenda?: string;
-  outcomes?: string;
-}
-
-// ─── AI Types ─────────────────────────────────────────────────────────────────
-interface AIBriefing { contactId: string; icebreaker: string; strategicContext: string; emotionalPulse: SentimentType | 'critical'; }
-interface InvestigateResult { avatar?: string; role?: string; location?: string; hobbies?: string[]; notes?: string; icebreaker?: string; relationshipScore?: number; }
-
+// Interfaces omitted as they are imported from data/types where necessary.
 
 
 // --- i18n Logic ---
@@ -197,7 +178,7 @@ interface LanguageContextType {
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
-const LanguageProvider = ({ children }: { children: React.ReactNode }) => {
+export const LanguageProvider = ({ children }: { children: React.ReactNode }) => {
   const [language, setLanguageState] = useState<Language>(() => {
     return (localStorage.getItem('the-core-lang') as Language) || 'en';
   });
@@ -228,27 +209,7 @@ const useTranslation = () => {
   if (!context) throw new Error('useTranslation must be used within LanguageProvider');
   return context;
 };
-// --- Error Monitoring ---
-const ErrorDisplay = ({ error }: { error: Error }) => (
-  <div className="fixed inset-0 bg-zinc-950 flex items-center justify-center p-10 z-[500] font-mono">
-    <div className="max-w-2xl w-full bg-red-950/20 border border-red-500/30 rounded-3xl p-8 space-y-6">
-      <div className="flex items-center gap-4 text-red-500">
-        <AlertCircle size={32} />
-        <h1 className="text-xl font-black uppercase tracking-widest">CRITICAL SYSTEM FAILURE</h1>
-      </div>
-      <div className="bg-black/50 p-6 rounded-xl border border-white/5 overflow-auto max-h-[40vh]">
-        <p className="text-red-400 font-bold mb-2">Error: {error.message}</p>
-        <pre className="text-[10px] text-zinc-500 leading-relaxed">{error.stack}</pre>
-      </div>
-      <button 
-        onClick={() => window.location.reload()}
-        className="w-full bg-red-500 text-white font-black uppercase tracking-widest py-4 rounded-xl hover:bg-red-600 transition-all"
-      >
-        Reboot System
-      </button>
-    </div>
-  </div>
-);
+// Error Monitoring unused, removed for build success);
 
 
 
@@ -1220,7 +1181,6 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
   const [quickAddStep, setQuickAddStep] = useState<'CAPTURE' | 'NOTES' | 'CATEGORY' | 'SUCCESS'>('CAPTURE');
   const [isInvestigating, setIsInvestigating] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
-  const [scanError, setScanError] = useState<string | null>(null);
   const [investigateResults, setInvestigateResults] = useState<InvestigateResult | null>(null);
   const [cardImages, setCardImages] = useState<File[]>([]);
   const [isRecording, setIsRecording] = useState(false);
@@ -1296,24 +1256,13 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
         name: '', role: '', company: '', email: '', website: '', phone: '', location: '', avatar: '', birthday: '', 
         spouseName: '', spouseBirthday: '', children: '', hobbies: '', 
         personalGoal: '', relationshipScore: 50, captureMetadata: { capturedAt: '', meetingLocation: '' },
-        intelligence: { icebreaker: '' }
+        intelligence: { icebreaker: '' },
+        category: ''
       });
     }
   }, [contact, isOpen]);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const cardInputRef = useRef<HTMLInputElement>(null);
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData({ ...formData, avatar: reader.result as string });
-      };
-      reader.readAsDataURL(file);
-    }
-  };
 
   const handleAIInvestigate = async () => {
     if (!formData.name) return;
@@ -1536,12 +1485,9 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
       setCardImages([]);
     } catch (error: any) {
       console.error('Failed to process card:', error);
-      setScanError(
-        error.message === 'READ_FAILED' 
+      console.error('Scan Error:', error.message === 'READ_FAILED' 
           ? 'No se detectó información legible en la tarjeta.' 
-          : 'La imagen es demasiado pesada o hubo un error de conexión.'
-      );
-      setTimeout(() => setScanError(null), 5000);
+          : 'La imagen es demasiado pesada o hubo un error de conexión.');
     } finally {
       setIsScanning(false);
     }
@@ -1570,7 +1516,6 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
       notes: formData.personalGoal,
       category: formData.category,
       intelligence: {
-        lastInteractionType: 'email',
         keyInterests: formData.hobbies ? formData.hobbies.split(',').map(s => s.trim()) : [],
         communicationStyle: 'Professional',
         icebreaker: formData.intelligence?.icebreaker || ''
@@ -1703,7 +1648,7 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
                           type="button"
                           onClick={toggleRecording}
                           className={`relative z-10 w-32 h-32 lg:w-40 lg:h-40 rounded-full flex items-center justify-center transition-all ${
-                            isRecording ? 'bg-primary scale-110 shadow-glow' : 'bg-white/5 border border-white/10 hover:bg-white/10'
+                            isRecording ? 'bg-red-500 scale-110 shadow-[0_0_50px_rgba(239,68,68,0.5)]' : 'bg-white/5 border border-white/10 hover:bg-white/10'
                           }`}
                         >
                           <Mic size={48} className={isRecording ? 'text-white' : 'text-zinc-400'} />
@@ -1711,8 +1656,8 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
                       </div>
                       
                       <div className="w-full max-w-md text-center space-y-4">
-                        <p className="text-sm font-bold text-zinc-400">
-                          {isRecording ? 'Pulsa para detener grabación...' : isTranscribing ? 'Procesando Inteligencia...' : 'Pulsa para empezar a grabar notas'}
+                        <p className={`text-sm font-black uppercase tracking-widest ${isRecording ? 'text-red-500 animate-pulse' : 'text-zinc-400'}`}>
+                          {isRecording ? 'TOCA PARA DETENER' : isTranscribing ? 'PROCESANDO AUDIO...' : 'TOCA PARA GRABAR'}
                         </p>
                         
                         <textarea 
@@ -2086,7 +2031,8 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
                   </AnimatePresence>
 
                   <div className="pt-8 mt-auto flex justify-end gap-4">
-                    <button type="submit" className="bg-primary text-white px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest glow-red hover:scale-105 transition-all shadow-xl">
+                    <button type="submit" className="w-full bg-primary text-white px-10 py-5 rounded-2xl text-xs font-black uppercase tracking-widest glow-red hover:scale-[1.02] active:scale-95 transition-all shadow-xl flex items-center justify-center gap-3">
+                      <CheckCircle size={20} />
                       {t('dashboard.saveChanges')}
                     </button>
                   </div>
@@ -2360,6 +2306,7 @@ const TranslationPlaceholder = () => {
 };
 
 export default function App() {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [expandedContact, setExpandedContact] = useState<Contact | null>(null);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
@@ -2415,7 +2362,6 @@ export default function App() {
   }, []);
 
   return (
-      <LanguageProvider>
       <div className="flex h-screen bg-black text-foreground selection:bg-primary/30 overflow-hidden relative">
         {/* Command Palette */}
         <CommandPalette 
@@ -2642,7 +2588,6 @@ export default function App() {
           )}
         </AnimatePresence>
       </div>
-    </LanguageProvider>
   );
 }
 

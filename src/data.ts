@@ -1,6 +1,4 @@
-// Types are inferred from the data shape - no explicit imports needed for runtime
-
-export const contacts = [
+export const contacts: any[] = [
   {
     id: '1',
     name: 'Marcus Thorne',

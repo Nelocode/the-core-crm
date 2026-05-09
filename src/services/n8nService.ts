@@ -102,6 +102,11 @@ export const n8nService = {
     try {
       const formData = new FormData();
       formData.append('audio', audioBlob, `recording.${extension}`);
+      
+      // Añadimos un prompt bilingüe para evitar alucinaciones en coreano/galés de Whisper 
+      // y mejorar el reconocimiento de palabras en inglés y español mezcladas.
+      // NOTA: El webhook de n8n en el backend debe estar configurado para usar este campo 'prompt' en el nodo de OpenAI.
+      formData.append('prompt', 'This is a bilingual conversation in English and Spanish. Esta es una conversación bilingüe en inglés y español. Por favor, mantén el idioma original de cada frase, no traduzcas. Evita alucinaciones.');
 
       const response = await fetch(`${ENGINE_URL}/api/transcribe`, {
         method: 'POST',
