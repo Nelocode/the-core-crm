@@ -1372,7 +1372,8 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
         const recognition = new SpeechRecognition();
         recognition.continuous = true;
         recognition.interimResults = true;
-        recognition.lang = 'es-ES';
+        // Usa el idioma del navegador para mejor soporte bilingüe (inglés/español)
+        recognition.lang = navigator.language || 'es-ES';
         
         recognition.onresult = (event: any) => {
           let fullTranscript = '';
