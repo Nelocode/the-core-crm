@@ -2311,7 +2311,7 @@ export default function App() {
   const [expandedContact, setExpandedContact] = useState<Contact | null>(null);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [appContacts, setAppContacts] = useState<Contact[]>(initialContacts);
+  const [appContacts, setAppContacts] = useState<Contact[]>([]); // Populated by server on load
   const [contactToEdit, setContactToEdit] = useState<Contact | null>(null);
   const [externalSelectedContactId, setExternalSelectedContactId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -2332,7 +2332,8 @@ export default function App() {
     const loadContacts = async () => {
       try {
         const data = await contactService.getAll();
-        if (Array.isArray(data) && data.length > 0) {
+        // Always sync with server state — even if empty (avoids showing stale demo contacts)
+        if (Array.isArray(data)) {
           setAppContacts(data);
         }
       } catch (error) {
