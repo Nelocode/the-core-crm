@@ -568,27 +568,80 @@ function CommandPalette({
             </div>
           </motion.div>
 
-          {/* Quick Icebreaker Peek */}
+          {/* Contact Quick Peek */}
           <AnimatePresence>
             {hoveredContact && (
               <motion.div
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -10 }}
-                className="hidden lg:block w-72 bg-zinc-900/90 border border-white/10 rounded-2xl p-6 shadow-2xl backdrop-blur-xl"
+                className="hidden lg:block w-72 bg-zinc-900/90 border border-white/10 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-xl"
               >
-                <div className="flex items-center gap-3 mb-4">
-                  <Sparkles size={14} className="text-primary" />
-                  <span className="text-[9px] font-black uppercase tracking-[0.3em] text-primary mono">{t('intelligence.icebreaker')}</span>
-                </div>
-                <p className="text-sm font-medium italic text-white leading-relaxed">
-                  "{mockAIBriefings[hoveredContact.id as keyof typeof mockAIBriefings]?.icebreaker}"
-                </p>
-                <div className="mt-4 pt-4 border-t border-white/5">
-                  <div className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-success" />
-                    <span className="text-[8px] font-black uppercase tracking-widest text-zinc-500">Inteligencia Activa</span>
+                {/* Header */}
+                <div className="flex items-center gap-3 p-5 border-b border-white/5">
+                  <ContactAvatar src={hoveredContact.avatar} name={hoveredContact.name} className="w-10 h-10 rounded-xl flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-white truncate">{hoveredContact.name}</p>
+                    <p className="text-[10px] text-zinc-500 truncate">{[hoveredContact.role, hoveredContact.company].filter(Boolean).join(' · ')}</p>
                   </div>
+                </div>
+
+                {/* Bullets */}
+                <div className="p-5 space-y-2.5">
+                  {hoveredContact.location && (
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-[10px] text-zinc-600 w-3">📍</span>
+                      <span className="text-[11px] text-zinc-300">{hoveredContact.location}</span>
+                    </div>
+                  )}
+                  {hoveredContact.email && (
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-[10px] text-zinc-600 w-3">✉</span>
+                      <span className="text-[11px] text-zinc-300 truncate">{hoveredContact.email}</span>
+                    </div>
+                  )}
+                  {hoveredContact.phone && (
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-[10px] text-zinc-600 w-3">📞</span>
+                      <span className="text-[11px] text-zinc-300">{hoveredContact.phone}</span>
+                    </div>
+                  )}
+                  {hoveredContact.tags && hoveredContact.tags.length > 0 && (
+                    <div className="flex items-center gap-2 flex-wrap pt-0.5">
+                      {hoveredContact.tags.slice(0, 3).map((tag: any) => (
+                        <span key={tag.id} className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border" style={{ color: tag.color || '#a1a1aa', borderColor: (tag.color || '#a1a1aa') + '40', backgroundColor: (tag.color || '#a1a1aa') + '15' }}>
+                          {tag.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Relationship Score */}
+                  <div className="pt-1">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-zinc-600">Relación</span>
+                      <span className="text-[10px] font-bold text-white">{hoveredContact.relationshipScore ?? 50}/100</span>
+                    </div>
+                    <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${hoveredContact.relationshipScore ?? 50}%`,
+                          background: `hsl(${(hoveredContact.relationshipScore ?? 50) * 1.2}, 80%, 50%)`
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Last Interaction */}
+                  {hoveredContact.interactions?.[0] && (
+                    <div className="flex items-center gap-2 pt-1 border-t border-white/5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
+                      <span className="text-[10px] text-zinc-500 truncate">
+                        Último contacto: {new Date(hoveredContact.interactions[0].date).toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}
