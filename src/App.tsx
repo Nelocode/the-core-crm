@@ -1548,15 +1548,20 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // Guard: name is required — never save a ghost contact
+    if (!formData.name?.trim()) {
+      alert('Por favor ingresa el nombre del contacto.');
+      return;
+    }
     const contactData: Contact = {
       id: contact?.id || Math.random().toString(36).substr(2, 9),
-      name: formData.name,
+      name: formData.name.trim(),
       role: formData.role,
       company: formData.company,
       email: formData.email,
       website: formData.website,
       phone: formData.phone,
-      location: formData.location || contact?.location || 'Remote',
+      location: formData.location || contact?.location || '',
       relationshipScore: formData.relationshipScore,
       avatar: formData.avatar || '',
       captureMetadata: formData.captureMetadata,
@@ -1624,13 +1629,27 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
                     exit={{ opacity: 0, x: -50 }}
                     className="flex-1 flex flex-col p-8 lg:p-12"
                   >
-                    <div className="mb-12">
-                      <h3 className="text-4xl lg:text-5xl font-black tracking-tighter text-white uppercase mb-2">Capturar Tarjeta</h3>
+                    <div className="mb-8">
+                      <h3 className="text-4xl lg:text-5xl font-black tracking-tighter text-white uppercase mb-2">Nuevo Contacto</h3>
                       <p className="text-xs text-primary font-black uppercase tracking-[0.3em] mono">Unidad de Inteligencia</p>
                     </div>
 
-                    <div className="flex-1 flex flex-col gap-6 justify-center">
-                      <div className="grid grid-cols-2 gap-4 h-64 lg:h-80">
+                    {/* Name — required field */}
+                    <div className="mb-6">
+                      <label className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mono block mb-2">Nombre <span className="text-primary">*</span></label>
+                      <input
+                        autoFocus
+                        type="text"
+                        placeholder="Ej: Carlos Ramírez"
+                        value={formData.name}
+                        onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-white text-base font-semibold placeholder:text-zinc-600 focus:outline-none focus:border-primary/50 transition-all"
+                      />
+                    </div>
+
+                    <div className="flex-1 flex flex-col gap-6">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Escanear tarjeta (opcional)</p>
+                      <div className="grid grid-cols-2 gap-4 h-44 lg:h-56">
                         {[0, 1].map((idx) => (
                           <button 
                             key={idx}
@@ -1769,11 +1788,12 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
                       </div>
                       <button 
                         type="button"
+                        disabled={!formData.name?.trim()}
                         onClick={(e) => {
                           handleSubmit(e as any);
                           setQuickAddStep('SUCCESS');
                         }}
-                        className="w-full border border-white/10 text-zinc-400 py-4 rounded-[2rem] font-black uppercase tracking-[0.2em] hover:bg-white/5 hover:text-white transition-all text-[10px]"
+                        className="w-full border border-white/10 text-zinc-400 py-4 rounded-[2rem] font-black uppercase tracking-[0.2em] hover:bg-white/5 hover:text-white transition-all text-[10px] disabled:opacity-30 disabled:cursor-not-allowed"
                       >
                         Guardar Directamente
                       </button>
@@ -1826,11 +1846,12 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
                       </button>
                       <button 
                         type="button"
+                        disabled={!formData.name?.trim()}
                         onClick={(e) => {
                           handleSubmit(e as any);
                           setQuickAddStep('SUCCESS');
                         }}
-                        className="w-2/3 bg-primary text-white py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] shadow-glow flex items-center justify-center gap-3 hover:scale-[1.02] transition-all text-xs"
+                        className="w-2/3 bg-primary text-white py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] shadow-glow flex items-center justify-center gap-3 hover:scale-[1.02] transition-all text-xs disabled:opacity-40 disabled:cursor-not-allowed disabled:scale-100"
                       >
                         Guardar Contacto <Check size={20} />
                       </button>
