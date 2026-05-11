@@ -1629,27 +1629,13 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
                     exit={{ opacity: 0, x: -50 }}
                     className="flex-1 flex flex-col p-8 lg:p-12"
                   >
-                    <div className="mb-8">
-                      <h3 className="text-4xl lg:text-5xl font-black tracking-tighter text-white uppercase mb-2">Nuevo Contacto</h3>
-                      <p className="text-xs text-primary font-black uppercase tracking-[0.3em] mono">Unidad de Inteligencia</p>
+                    <div className="mb-10">
+                      <h3 className="text-4xl lg:text-5xl font-black tracking-tighter text-white uppercase mb-2">Capturar Tarjeta</h3>
+                      <p className="text-xs text-primary font-black uppercase tracking-[0.3em] mono">El nombre se extrae automáticamente del escaneo</p>
                     </div>
 
-                    {/* Name — required field */}
-                    <div className="mb-6">
-                      <label className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mono block mb-2">Nombre <span className="text-primary">*</span></label>
-                      <input
-                        autoFocus
-                        type="text"
-                        placeholder="Ej: Carlos Ramírez"
-                        value={formData.name}
-                        onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-white text-base font-semibold placeholder:text-zinc-600 focus:outline-none focus:border-primary/50 transition-all"
-                      />
-                    </div>
-
-                    <div className="flex-1 flex flex-col gap-6">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Escanear tarjeta (opcional)</p>
-                      <div className="grid grid-cols-2 gap-4 h-44 lg:h-56">
+                    <div className="flex-1 flex flex-col gap-6 justify-center">
+                      <div className="grid grid-cols-2 gap-4 h-64 lg:h-80">
                         {[0, 1].map((idx) => (
                           <button 
                             key={idx}
@@ -1702,12 +1688,29 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
                     exit={{ opacity: 0, x: -50 }}
                     className="flex-1 flex flex-col p-8 lg:p-12"
                   >
-                    <div className="mb-12">
-                      <h3 className="text-4xl lg:text-5xl font-black tracking-tighter text-white uppercase mb-2">Notas de Voz</h3>
-                      <p className="text-xs text-primary font-black uppercase tracking-[0.3em] mono">Dictado Estratégico</p>
+                    <div className="mb-5">
+                      <h3 className="text-4xl lg:text-5xl font-black tracking-tighter text-white uppercase mb-2">Notas</h3>
+                      <p className="text-xs text-primary font-black uppercase tracking-[0.3em] mono">Confirma el nombre y agrega contexto</p>
                     </div>
 
-                    <div className="flex-1 flex flex-col items-center justify-center gap-12">
+                    {/* Name confirm — filled by OCR, editable as fallback */}
+                    <div className="mb-4">
+                      <label className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mono mb-1.5 flex items-center gap-2">
+                        Nombre <span className="text-primary">*</span>
+                        {isScanning && <span className="text-[8px] text-amber-400 animate-pulse ml-1">· leyendo tarjeta...</span>}
+                        {!isScanning && formData.name && <span className="text-[8px] text-success ml-1">· extraído ✓</span>}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder={isScanning ? 'Extrayendo de la tarjeta...' : 'Escribe el nombre si no escaneaste'}
+                        value={formData.name}
+                        disabled={isScanning}
+                        onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-white text-sm font-semibold placeholder:text-zinc-600 focus:outline-none focus:border-primary/50 transition-all disabled:opacity-50 disabled:cursor-wait"
+                      />
+                    </div>
+
+                    <div className="flex-1 flex flex-col items-center justify-center gap-8">
                       <div className="relative">
                         {isRecording && (
                           <motion.div 
