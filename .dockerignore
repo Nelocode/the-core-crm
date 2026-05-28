@@ -5,7 +5,6 @@ dist
 .DS_Store
 *.log
 Dockerfile
-nginx.conf
 .env
 .env.local
 .gemini
