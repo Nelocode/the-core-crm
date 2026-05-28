@@ -47,8 +47,40 @@
   transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+.glass-sidebar {
+  background: rgba(8, 8, 8, 0.65);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  border-top-right-radius: 2.5rem;
+  border-bottom-right-radius: 2.5rem;
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.premium-card {
+  background: rgba(10, 10, 10, 0.4);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 1.5rem;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
+}
+
+.premium-card:hover {
+  background: rgba(15, 15, 15, 0.6);
+  border-color: rgba(249, 17, 23, 0.25);
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.8), 0 0 25px rgba(249, 17, 23, 0.05);
+  transform: translateY(-2px);
+}
+
 .input-core {
   @apply w-full bg-white/[0.03] border border-white/10 rounded-2xl px-6 py-5 text-white focus:outline-none focus:border-primary/50 focus:bg-white/[0.08] transition-all duration-300 font-medium placeholder:text-zinc-700;
+}
+
+.input-core option {
+  background-color: #0a0a0a;
+  color: #ffffff;
 }
 
 .label-executive {

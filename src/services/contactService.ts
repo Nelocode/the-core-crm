@@ -311,6 +311,13 @@ export const contactService = {
 
   // ─── Interaction API ──────────────────────────────────────────────────────
 
+  /** Fetch all interactions across all contacts */
+  async getAllInteractions(): Promise<any[]> {
+    const res = await fetchWithTimeout(INTERACTIONS_URL, {}, 8000);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  },
+
   /**
    * Log a new interaction for a contact.
    * The backend auto-recalculates the relationship score.
@@ -418,6 +425,21 @@ export const contactService = {
   async getDetail(id: string): Promise<any> {
     const res = await fetchWithTimeout(`${API_URL}/${id}`, {}, 8000);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  },
+
+  /** Upload and process meeting recording audio with AI assistant */
+  async processMeetingAudio(contactId: string, audioBlob: Blob): Promise<any> {
+    const formData = new FormData();
+    formData.append('audio', audioBlob, 'meeting.webm');
+    const res = await fetch(`${ENGINE_URL}/api/meetings/contact/${contactId}/process-audio`, {
+      method: 'POST',
+      body: formData
+    });
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || `HTTP ${res.status}`);
+    }
     return res.json();
   },
 };

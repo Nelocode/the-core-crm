@@ -2,54 +2,61 @@
 
 Este documento registra el progreso diario y el estado actual del proyecto para facilitar la continuidad.
 
-## 📅 Estado al 29 de Abril, 2026 (Sesión Mañana - v1.2)
+---
 
-### ✅ Hitos Completados (Nuevos en v1.2)
-- **Identidad "The Core" Inmersiva**:
-    - **Logo Nucleus**: Logo animado con círculos concéntricos que representan el núcleo de la inteligencia.
-    - **Fondo Dinámico**: Implementación de una atmósfera inmersiva con ruido de grano, cuadrícula sutil y un pulso de luz central (`core-pulse`).
-    - **Favicon Personalizado**: Icono de pestaña actualizado con la identidad visual del núcleo.
-- **Internacionalización (i18n)**:
-    - Sistema de lenguaje dual (EN/ES) con switcher persistente en el sidebar.
-    - Soporte completo para traducciones dinámicas en todo el dashboard.
-- **Refinamiento de Jerarquía Visual**:
-    - Encabezados de sección en blanco puro (`font-black`) para mayor claridad estructural.
-    - Contenido de tarjetas en escalas de grises sofisticadas (`zinc-300`).
-    - Selección de contactos más sutil inspirada en el diseño del switcher de idiomas.
-- **Vista Ejecutiva Detallada**:
-    - **Modal de Detalle**: Modal inmersivo con efecto de desenfoque de fondo para ampliar fotos de contactos.
-    - **Inteligencia Rompehielo**: Integración del "Rompehielo Recomendado" junto a la imagen ampliada para facilitar la conexión rápida del CEO.
-- **Edición de Inteligencia y Persistencia (v1.2)**:
-    - **Edición de Contactos**: Sistema de edición premium integrado.
-    - **Persistencia**: Sincronización automática con `localStorage`.
-    - **Smart Filters**: Implementación de filtros inteligentes para búsqueda y segmentación.
+## 📅 Estado al 26 de Mayo, 2026
 
-### ✅ Hitos Completados (Nuevos en v1.4)
-- **Integración Real con n8n**:
-    - **Servicio de Conexión**: Implementación de `n8nService.ts` para llamadas reales.
-    - **OCR Funcional**: Conexión con n8n para el escaneo de tarjetas usando GPT-4o-mini con visión.
-- **Preparación para Despliegue (Easypanel)**:
-    - **Dockerización**: Creación de `Dockerfile` y `nginx.conf` optimizados para React 19 + Vite.
-    - **Configuración de Entorno**: Sistema de variables `.env` para webhooks de n8n.
-- **Identidad Móvil**: Refinamiento de la experiencia de usuario en smartphone.
+### 🏗️ Arquitectura Actual del Proyecto
+El proyecto está dividido en **dos repositorios separados**:
 
-### 🛠 Stack Técnico Actual
-- **Framework**: React 19 + Vite 5.
-- **Estilos**: Tailwind CSS v4 + PostCSS.
-- **Animaciones**: Framer Motion (Scanning lines, pulse effects).
-- **Iconos**: Lucide React.
-- **i18n**: Context API personalizada.
-- **Deployment**: Docker + Nginx + Easypanel.
-- **Integraciones**: n8n Webhooks.
+| Repo | GitHub | Local | Estado |
+|------|--------|-------|--------|
+| **Frontend** (`/The Core`) | `Nelocode/the-core-crm` | `main` | ✅ Sincronizado |
+| **Backend** (`/The Core/core-server`) | `Nelocode/the-core-server` | `main` | ✅ Actualizado (se hizo `git pull` hoy) |
+
+> ⚠️ **Nota**: `core-server` estaba 3 commits atrás del remoto. Se sincronizó hoy con `git pull`.
+
+### ✅ Features Completas (v1.5.x)
+- **Frontend** (React 19 + Vite 5 + Tailwind v4):
+  - Dashboard con "AI Briefing" de rompehielos.
+  - Gestión completa de contactos (CRUD) con modelo relacional Irwin-style.
+  - Búsqueda global `CMD+K` con filtros inteligentes (`company:`, `role:`, `score>`).
+  - Registro de interacciones (meeting, call, email, linkedin, event, note).
+  - Internacionalización EN/ES completa con persistencia en localStorage.
+  - Mobile-first con bottom navigation bar.
+  - `ContactAvatar` con fallback a iniciales.
+  - Escaneo de tarjetas de negocios (OCR) vía card scan.
+  - Transcripción de audio para captura de notas en campo.
+- **Backend** (`core-server` — Express + Prisma + SQLite):
+  - 8 modelos relacionales: Organization, Contact, Interaction, Tag, ContactTag, Meeting, MeetingAttendee, Note.
+  - APIs REST: `/api/contacts`, `/api/interactions`, `/api/investigate`, `/api/scan-card`, `/api/transcribe`.
+  - Integración con OpenAI (OCR con GPT-4o-vision, investigación con Tavily).
+  - Soporte de transcripción bilingüe (ES/EN) con filtro anti-alucinaciones de Whisper.
+  - Dockerizado para Easypanel.
+- **Infraestructura**:
+  - Backend en producción: `automatizaciones-the-core-engine.vz27dz.easypanel.host`
+  - Frontend con `Dockerfile` + `nginx.conf` listo para desplegar.
+
+### 🔧 Stack Técnico Actual
+- **Frontend**: React 19 + Vite 5 + TypeScript + Tailwind v4 + Framer Motion + Lucide React + date-fns
+- **Backend**: Node.js + Express + Prisma ORM + SQLite + OpenAI SDK + Tavily
+- **Deploy**: Docker + Nginx + Easypanel
+- **Node local**: v24.15.0 para el frontend, v20.12.2 para el backend.
+- **Persistencia de Datos Local**: ✅ Completada. El backend conecta correctamente con SQLite local (`core-server/prisma/dev.db`) y el frontend se comunica con `http://localhost:3001`.
 
 ### 🚀 Próximos Pasos (Pendientes)
-- [ ] **Despliegue en Vivo**: Finalizar la configuración en Easypanel y testear en móvil.
-- [ ] **Deep Search (n8n)**: Implementar el flujo de investigación profunda de contactos.
-- [ ] **Google Integration**: Configurar OAuth2 para calendario y contactos reales.
+- [ ] **Google Workspace Integration**: OAuth2 → Google Calendar y People API para reuniones reales.
+- [ ] **Vista de Calendario**: Conectar reuniones reales desde Google Calendar.
+- [ ] **Vista de Historial**: Timeline global de todas las interacciones.
+- [ ] **Despliegue del Frontend**: Subir la imagen Docker del frontend a Easypanel.
+- [ ] **Mejora del Motor IA**: Usar icebreakers dinámicos del backend (actualmente son mocks) para todos los contactos.
 
 ### ⚠️ Notas Importantes
-- **Versión**: v1.4 - Integración Real y Despliegue.
-- **Puerto Local**: `http://localhost:5174`.
+- **Para correr localmente**:
+  - El backend corre en el puerto `3001` (`export PATH=/Users/i2carvajal/.node/bin:$PATH && npm run dev` en `core-server`).
+  - El frontend corre en el puerto `5173` (`npm run dev` en el root).
+- **Base de datos local**: Inicializada y con persistencia confirmada (CRUD de contactos funcionando localmente).
+- **OPENAI_API_KEY** en `core-server/.env` está como placeholder — necesita clave real para investigate/OCR.
 
 ---
-*Próxima actualización: Tras el primer test exitoso desde dispositivo móvil.*
+*Última actualización: 26 de Mayo, 2026. Persistencia de datos y errores de Prisma solucionados localmente.*

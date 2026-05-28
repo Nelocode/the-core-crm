@@ -1,4 +1,4 @@
-import { useState, createContext, useContext, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import React from 'react';
 import { 
   Users, 
@@ -18,6 +18,8 @@ import {
   Command,
   LayoutGrid,
   List,
+  MapPin,
+  ChevronDown,
   Briefcase,
   Heart,
   Trash2,
@@ -43,10 +45,18 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { format, isToday } from 'date-fns';
 
 import { n8nService } from './services/n8nService';
+import type { InvestigateResult } from './services/n8nService';
 import { contactService } from './services/contactService';
 
-import { contacts as initialContacts, meetings, mockAIBriefings } from './data';
-import { translations } from './translations';
+import { HistoryTimelineView } from './components/HistoryTimelineView';
+import IntegrationsView from './components/IntegrationsView';
+import CalendarView from './components/CalendarView';
+import MeetingAssistantTab from './components/MeetingAssistantTab';
+import ImportWizardModal from './components/ImportWizardModal';
+
+import { NetworkMapView } from './components/NetworkMapView';
+import { meetings } from './data';
+import { useTranslation } from './i18n';
 
 // Types defined inline — Irwin-style relational model (TypeScript interfaces don't export as ESM values)
 
@@ -55,7 +65,6 @@ type InteractionType = 'meeting' | 'call' | 'email' | 'linkedin' | 'event' | 'no
 type SentimentType = 'positive' | 'neutral' | 'negative';
 type EngagementLevel = 'hot' | 'warm' | 'cold' | 'inactive';
 type CaptureSource = 'card_scan' | 'manual' | 'import' | 'linkedin';
-type Language = 'en' | 'es';
 
 // ─── Organization ───────────────────────────────────────────────────────────
 interface Organization {
@@ -168,48 +177,7 @@ interface Contact {
 // Interfaces omitted as they are imported from data/types where necessary.
 
 
-// --- i18n Logic ---
-
-interface LanguageContextType {
-  language: Language;
-  setLanguage: (lang: Language) => void;
-  t: (path: string) => any;
-}
-
-const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
-
-export const LanguageProvider = ({ children }: { children: React.ReactNode }) => {
-  const [language, setLanguageState] = useState<Language>(() => {
-    return (localStorage.getItem('the-core-lang') as Language) || 'en';
-  });
-
-  const setLanguage = (lang: Language) => {
-    setLanguageState(lang);
-    localStorage.setItem('the-core-lang', lang);
-  };
-
-  const t = (path: string) => {
-    const keys = path.split('.');
-    let result: any = (translations as any)[language];
-    for (const key of keys) {
-      result = result?.[key];
-    }
-    return result || path;
-  };
-
-  return (
-    <LanguageContext.Provider value={{ language, setLanguage, t }}>
-      {children}
-    </LanguageContext.Provider>
-  );
-};
-
-const useTranslation = () => {
-  const context = useContext(LanguageContext);
-  if (!context) throw new Error('useTranslation must be used within LanguageProvider');
-  return context;
-};
-// Error Monitoring unused, removed for build success);
+// Context and Provider imported from ./i18n
 
 
 
@@ -228,6 +196,7 @@ function Sidebar({ activeTab, setActiveTab, setIsAddModalOpen }: {
     { id: 'contacts', icon: Users, label: t('sidebar.contacts') },
     { id: 'calendar', icon: Calendar, label: t('sidebar.calendar') },
     { id: 'history', icon: History, label: t('sidebar.history') },
+    { id: 'integrations', icon: Zap, label: t('sidebar.integrations') },
   ];
 
   return (
@@ -302,8 +271,19 @@ function Sidebar({ activeTab, setActiveTab, setIsAddModalOpen }: {
           </div>
         </div>
 
-        <button className="w-full flex items-center gap-4 px-4 py-3 text-muted-foreground hover:text-white transition-colors group">
-          <Settings size={18} strokeWidth={1.5} className="group-hover:rotate-45 transition-transform" />
+        <button 
+          onClick={() => setActiveTab('integrations')}
+          className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300 group ${
+            activeTab === 'integrations' 
+              ? 'bg-primary text-white glow-red shadow-lg' 
+              : 'text-muted-foreground hover:bg-white/5 hover:text-white'
+          }`}
+        >
+          <Settings 
+            size={18} 
+            strokeWidth={activeTab === 'integrations' ? 2 : 1.5} 
+            className={activeTab === 'integrations' ? 'scale-110' : 'group-hover:rotate-45 transition-transform'} 
+          />
           <span className="font-semibold text-sm hidden lg:block tracking-tight">{t('sidebar.settings')}</span>
         </button>
       </div>
@@ -322,6 +302,7 @@ function MobileNav({ activeTab, setActiveTab, setIsAddModalOpen }: {
     { id: 'contacts', icon: Users, label: t('sidebar.contacts') },
     { id: 'calendar', icon: Calendar, label: t('sidebar.calendar') },
     { id: 'history', icon: History, label: t('sidebar.history') },
+    { id: 'integrations', icon: Zap, label: t('sidebar.integrations') },
   ];
 
   return (
@@ -348,12 +329,31 @@ function MobileNav({ activeTab, setActiveTab, setIsAddModalOpen }: {
   );
 };
 
-function AIBriefingCard({ contactId }: { contactId: string }) {
+function AIBriefingCard({ contact }: { contact: Contact }) {
   const { t } = useTranslation();
-  const briefing = mockAIBriefings[contactId as keyof typeof mockAIBriefings];
-  const contact = initialContacts.find(c => c.id === contactId);
+  
+  const icebreaker = contact.aiIcebreaker || contact.intelligence?.icebreaker;
+  const strategicContext = contact.aiStrategicContext || contact.intelligence?.strategicContext;
+  const sentiment = contact.aiSentiment || contact.intelligence?.sentiment;
+  const keyInterests = contact.aiKeyInterests || contact.intelligence?.keyInterests || [];
 
-  if (!briefing || !contact) return null;
+  const hasAIBrief = !!(icebreaker || strategicContext || sentiment || keyInterests.length > 0);
+
+  if (!hasAIBrief) {
+    return (
+      <div className="premium-card p-8 border border-dashed border-white/10 flex flex-col items-center justify-center text-center gap-4">
+        <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-zinc-500">
+          <BrainCircuit size={20} />
+        </div>
+        <div>
+          <h4 className="text-sm font-bold text-white mb-1">Sin Briefing de Inteligencia IA</h4>
+          <p className="text-xs text-zinc-500 max-w-md mx-auto">
+            Edita este contacto y presiona "Investigar con IA" en el formulario para recopilar y estructurar datos estratégicos de internet en tiempo real.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <motion.div 
@@ -379,39 +379,60 @@ function AIBriefingCard({ contactId }: { contactId: string }) {
       </div>
 
       <div className="space-y-8 relative z-10">
-        <section>
-          <h4 className="text-[10px] text-muted-foreground uppercase tracking-widest mb-3 mono">{t('intelligence.icebreaker')}</h4>
-          <p className="text-xl font-medium leading-relaxed italic text-white selection:bg-copper/30">
-            "{briefing.icebreaker}"
-          </p>
-        </section>
+        {icebreaker && (
+          <section>
+            <h4 className="text-[10px] text-muted-foreground uppercase tracking-widest mb-3 mono">{t('intelligence.icebreaker')}</h4>
+            <p className="text-xl font-medium leading-relaxed italic text-white selection:bg-copper/30">
+              "{icebreaker}"
+            </p>
+          </section>
+        )}
 
-        <section>
-          <h4 className="text-[10px] text-muted-foreground uppercase tracking-widest mb-3 mono">{t('intelligence.strategicContext')}</h4>
-          <p className="text-sm text-white/70 leading-relaxed max-w-2xl">
-            {briefing.strategicContext}
-          </p>
-        </section>
+        {strategicContext && (
+          <section>
+            <h4 className="text-[10px] text-muted-foreground uppercase tracking-widest mb-3 mono">{t('intelligence.strategicContext')}</h4>
+            <p className="text-sm text-white/70 leading-relaxed max-w-2xl">
+              {strategicContext}
+            </p>
+          </section>
+        )}
 
-        <div className="flex items-center gap-8 pt-4 border-t border-white/5">
-          <div className="flex items-center gap-3">
-            <div className={`w-2.5 h-2.5 rounded-full ${
-              briefing.emotionalPulse === 'positive' ? 'bg-success' : 'bg-warning'
-            } shadow-[0_0_10px_rgba(16,185,129,0.5)]`} />
-            <div>
-              <span className="text-[9px] uppercase tracking-widest text-muted-foreground font-black mono block">{t('intelligence.sentiment')}</span>
-              <span className="text-xs font-bold uppercase">{briefing.emotionalPulse}</span>
+        {keyInterests && keyInterests.length > 0 && (
+          <section>
+            <h4 className="text-[10px] text-muted-foreground uppercase tracking-widest mb-3 mono">{t('intelligence.interests')}</h4>
+            <ul className="list-disc list-inside space-y-1.5 text-sm text-white/70">
+              {keyInterests.map((interest, idx) => (
+                <li key={idx} className="marker:text-primary pl-1">
+                  {interest}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {(sentiment || keyInterests.length > 0) && (
+          <div className="flex items-center gap-8 pt-4 border-t border-white/5">
+            {sentiment && (
+              <div className="flex items-center gap-3">
+                <div className={`w-2.5 h-2.5 rounded-full ${
+                  sentiment === 'positive' ? 'bg-success' : sentiment === 'negative' ? 'bg-primary' : 'bg-warning'
+                } shadow-[0_0_10px_rgba(16,185,129,0.5)]`} />
+                <div>
+                  <span className="text-[9px] uppercase tracking-widest text-muted-foreground font-black mono block">{t('intelligence.sentiment')}</span>
+                  <span className="text-xs font-bold uppercase">{sentiment}</span>
+                </div>
+              </div>
+            )}
+            <div className="border-l border-white/10 pl-8">
+              <span className="text-[9px] uppercase tracking-widest text-muted-foreground font-black mono block">{t('intelligence.certainty')}</span>
+              <span className="text-xs font-bold">98.4%</span>
             </div>
           </div>
-          <div className="border-l border-white/10 pl-8">
-            <span className="text-[9px] uppercase tracking-widest text-muted-foreground font-black mono block">{t('intelligence.certainty')}</span>
-            <span className="text-xs font-bold">98.4%</span>
-          </div>
-        </div>
+        )}
       </div>
     </motion.div>
   );
-};
+}
 
 const filterContacts = (appContacts: Contact[], query: string) => {
   if (query === '') return appContacts;
@@ -531,7 +552,14 @@ function CommandPalette({
                         onClose();
                       }}
                     >
-                      <ContactAvatar src={contact.avatar} name={contact.name} className="w-10 h-10 rounded-full" />
+                      <ContactAvatar 
+                        src={contact.avatar} 
+                        name={contact.name} 
+                        className="w-10 h-10 rounded-full" 
+                        companyName={contact.company}
+                        companyLogo={contact.organization?.logoUrl}
+                        companyDomain={contact.organization?.domain}
+                      />
                       <div className="flex-1 min-w-0">
                         <h5 className="font-bold text-sm text-white">{contact.name}</h5>
                         <p className="text-xs text-zinc-500">{contact.role} @ {contact.company}</p>
@@ -579,7 +607,14 @@ function CommandPalette({
               >
                 {/* Header */}
                 <div className="flex items-center gap-3 p-5 border-b border-white/5">
-                  <ContactAvatar src={hoveredContact.avatar} name={hoveredContact.name} className="w-10 h-10 rounded-xl flex-shrink-0" />
+                  <ContactAvatar 
+                    src={hoveredContact.avatar} 
+                    name={hoveredContact.name} 
+                    className="w-10 h-10 rounded-full flex-shrink-0" 
+                    companyName={hoveredContact.company}
+                    companyLogo={hoveredContact.organization?.logoUrl}
+                    companyDomain={hoveredContact.organization?.domain}
+                  />
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-white truncate">{hoveredContact.name}</p>
                     <p className="text-[10px] text-zinc-500 truncate">{[hoveredContact.role, hoveredContact.company].filter(Boolean).join(' · ')}</p>
@@ -657,39 +692,66 @@ function CommandPalette({
 function ContactAvatar({ 
   src, 
   name, 
-  className = "w-12 h-12 rounded-2xl",
+  companyName,
+  companyLogo,
+  companyDomain,
+  className = "w-12 h-12 rounded-full",
   size = "md"
 }: { 
   src?: string, 
   name: string, 
+  companyName?: string,
+  companyLogo?: string,
+  companyDomain?: string,
   className?: string,
   size?: 'sm' | 'md' | 'lg' | 'xl'
 }) {
   const [hasError, setHasError] = useState(false);
-  const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  const [hasCompanyLogoError, setHasCompanyLogoError] = useState(false);
+  
+  const initials = name.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
-  if (!src || hasError) {
+  // 1. Try rendering contact photo
+  if (src && !hasError) {
     return (
-      <div className={`${className} bg-gradient-to-br from-zinc-800 to-zinc-950 border border-white/10 flex items-center justify-center relative overflow-hidden group`}>
-        <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-        <span className={`font-black tracking-tighter text-zinc-500 group-hover:text-primary transition-colors font-mono uppercase text-center leading-none ${
-          size === 'xl' ? 'text-8xl' : size === 'lg' ? 'text-4xl' : 'text-xl'
-        }`}>
-          {initials || <Users size={24} />}
-        </span>
+      <img 
+        src={src} 
+        className={`${className} object-cover border border-white/10 shadow-xl`} 
+        alt={name}
+        onError={() => setHasError(true)}
+      />
+    );
+  }
+
+  // 2. Try rendering company logo if contact photo is absent/failed
+  const logoUrl = companyLogo || (companyDomain ? `https://logo.clearbit.com/${companyDomain}` : null);
+  if (logoUrl && !hasCompanyLogoError) {
+    const isLg = size === 'lg' || size === 'xl';
+    return (
+      <div className={`${className} bg-zinc-900 border border-white/10 flex items-center justify-center relative overflow-hidden group ${isLg ? 'p-3' : 'p-1.5'}`}>
+        <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+        <img 
+          src={logoUrl} 
+          alt={companyName || "Company logo"} 
+          className="max-w-full max-h-full object-contain rounded-md" 
+          onError={() => setHasCompanyLogoError(true)} 
+        />
       </div>
     );
   }
 
+  // 3. Fallback to initials
   return (
-    <img 
-      src={src} 
-      className={`${className} object-cover border border-white/10 shadow-xl`} 
-      alt={name}
-      onError={() => setHasError(true)}
-    />
+    <div className={`${className} bg-gradient-to-br from-zinc-800 to-zinc-950 border border-white/10 flex items-center justify-center relative overflow-hidden group`}>
+      <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+      <span className={`font-black tracking-tighter text-zinc-500 group-hover:text-primary transition-colors font-mono uppercase text-center leading-none ${
+        size === 'xl' ? 'text-8xl' : size === 'lg' ? 'text-4xl' : 'text-xl'
+      }`}>
+        {initials || <Users size={24} />}
+      </span>
+    </div>
   );
-};
+}
 
 
 // ─── Interaction Type Config ──────────────────────────────────────────────────
@@ -718,20 +780,30 @@ const SENTIMENT_CFG: Record<string, { label: string; cls: string }> = {
 
 // ─── InteractionLog ───────────────────────────────────────────────────────────
 
-function InteractionLog({ contactId, initialInteractions }: { contactId: string; initialInteractions: Interaction[] }) {
+function InteractionLog({ 
+  contactId, 
+  initialInteractions,
+  onInteractionsChange
+}: { 
+  contactId: string; 
+  initialInteractions: Interaction[];
+  onInteractionsChange?: (updated: Interaction[]) => void;
+}) {
   const [interactions, setInteractions] = useState<Interaction[]>(initialInteractions);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ type: 'meeting', date: new Date().toISOString().slice(0, 16), summary: '', sentiment: 'positive', location: '', followUpDue: '', outcome: '' });
 
-  useEffect(() => { setInteractions(initialInteractions); }, [contactId]);
+  useEffect(() => { setInteractions(initialInteractions); }, [contactId, initialInteractions]);
 
   const handleSave = async () => {
     if (!form.summary.trim()) return;
     setSaving(true);
     try {
       const created = await contactService.addInteraction(contactId, { ...form, date: new Date(form.date).toISOString(), followUpDue: form.followUpDue ? new Date(form.followUpDue).toISOString() : undefined, outcome: form.outcome || undefined, location: form.location || undefined });
-      setInteractions(prev => [created, ...prev]);
+      const next = [created, ...interactions];
+      setInteractions(next);
+      onInteractionsChange?.(next);
       setShowForm(false);
       setForm({ type: 'meeting', date: new Date().toISOString().slice(0, 16), summary: '', sentiment: 'positive', location: '', followUpDue: '', outcome: '' });
     } catch (e) { console.error('[Core] Failed to save interaction:', e); }
@@ -739,13 +811,21 @@ function InteractionLog({ contactId, initialInteractions }: { contactId: string;
   };
 
   const handleDelete = async (id: string) => {
-    try { await contactService.deleteInteraction(id); setInteractions(prev => prev.filter(i => i.id !== id)); }
-    catch (e) { console.error('[Core] Failed to delete interaction:', e); }
+    try { 
+      await contactService.deleteInteraction(id); 
+      const next = interactions.filter(i => i.id !== id);
+      setInteractions(next);
+      onInteractionsChange?.(next);
+    } catch (e) { console.error('[Core] Failed to delete interaction:', e); }
   };
 
   const handleMarkDone = async (id: string) => {
-    try { await contactService.markFollowUpDone(id); setInteractions(prev => prev.map(i => i.id === id ? { ...i, followUpDone: true } : i)); }
-    catch (e) { console.error('[Core] Failed to mark follow-up done:', e); }
+    try { 
+      await contactService.markFollowUpDone(id); 
+      const next = interactions.map(i => i.id === id ? { ...i, followUpDone: true } : i);
+      setInteractions(next);
+      onInteractionsChange?.(next);
+    } catch (e) { console.error('[Core] Failed to mark follow-up done:', e); }
   };
 
   return (
@@ -863,21 +943,31 @@ function InteractionLog({ contactId, initialInteractions }: { contactId: string;
 
 // ─── NotesPanel ───────────────────────────────────────────────────────────────
 
-function NotesPanel({ contactId, initialNotes }: { contactId: string; initialNotes: Note[] }) {
+function NotesPanel({ 
+  contactId, 
+  initialNotes,
+  onNotesChange
+}: { 
+  contactId: string; 
+  initialNotes: Note[];
+  onNotesChange?: (updated: Note[]) => void;
+}) {
   const [notes, setNotes] = useState<Note[]>(initialNotes);
   const [newContent, setNewContent] = useState('');
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
 
-  useEffect(() => { setNotes(initialNotes); }, [contactId]);
+  useEffect(() => { setNotes(initialNotes); }, [contactId, initialNotes]);
 
   const handleAdd = async () => {
     if (!newContent.trim()) return;
     setSaving(true);
     try {
       const created = await contactService.addNote(contactId, newContent.trim());
-      setNotes(prev => [created, ...prev]);
+      const next = [created, ...notes];
+      setNotes(next);
+      onNotesChange?.(next);
       setNewContent('');
     } catch (e) { console.error('[Core] Failed to add note:', e); }
     finally { setSaving(false); }
@@ -886,7 +976,9 @@ function NotesPanel({ contactId, initialNotes }: { contactId: string; initialNot
   const handleTogglePin = async (note: Note) => {
     try {
       const updated = await contactService.updateNote(note.id, { isPinned: !note.isPinned });
-      setNotes(prev => [...prev.map(n => n.id === note.id ? { ...n, isPinned: updated.isPinned } : n)].sort((a, b) => Number(b.isPinned) - Number(a.isPinned)));
+      const next = [...notes.map(n => n.id === note.id ? { ...n, isPinned: updated.isPinned } : n)].sort((a, b) => Number(b.isPinned) - Number(a.isPinned));
+      setNotes(next);
+      onNotesChange?.(next);
     } catch (e) { console.error('[Core] Failed to pin note:', e); }
   };
 
@@ -894,14 +986,20 @@ function NotesPanel({ contactId, initialNotes }: { contactId: string; initialNot
     if (!editContent.trim()) return;
     try {
       const updated = await contactService.updateNote(id, { content: editContent.trim() });
-      setNotes(prev => prev.map(n => n.id === id ? { ...n, content: updated.content } : n));
+      const next = notes.map(n => n.id === id ? { ...n, content: updated.content } : n);
+      setNotes(next);
+      onNotesChange?.(next);
       setEditingId(null);
     } catch (e) { console.error('[Core] Failed to update note:', e); }
   };
 
   const handleDelete = async (id: string) => {
-    try { await contactService.deleteNote(id); setNotes(prev => prev.filter(n => n.id !== id)); }
-    catch (e) { console.error('[Core] Failed to delete note:', e); }
+    try { 
+      await contactService.deleteNote(id); 
+      const next = notes.filter(n => n.id !== id);
+      setNotes(next);
+      onNotesChange?.(next);
+    } catch (e) { console.error('[Core] Failed to delete note:', e); }
   };
 
   const sorted = [...notes].sort((a, b) => Number(b.isPinned) - Number(a.isPinned));
@@ -1064,18 +1162,18 @@ function Dashboard({ onExpandContact, forceSelectedContactId, appContacts, setIs
                       : 'border-transparent hover:bg-white/5 hover:border-white/10'
                   }`}
                 >
-                  {contact.avatar ? (
-                    <div className="relative group/avatar cursor-zoom-in" onClick={(e) => { e.stopPropagation(); onExpandContact(contact); }}>
-                      <img src={contact.avatar} alt={contact.name} className="w-12 h-12 rounded-full object-cover border border-white/10 group-hover:scale-110 transition-transform" />
-                      <div className="absolute inset-0 rounded-full bg-primary/20 opacity-0 group-hover/avatar:opacity-100 transition-opacity flex items-center justify-center">
-                        <Maximize2 size={12} className="text-white" />
-                      </div>
+                  <div className="relative group/avatar cursor-zoom-in" onClick={(e) => { e.stopPropagation(); onExpandContact(contact); }}>
+                    <ContactAvatar 
+                      src={contact.avatar} 
+                      name={contact.name} 
+                      className="w-12 h-12 rounded-full object-cover border border-white/10 group-hover:scale-110 transition-transform" 
+                      companyLogo={contact.organization?.logoUrl}
+                      companyDomain={contact.organization?.domain}
+                    />
+                    <div className="absolute inset-0 rounded-full bg-primary/20 opacity-0 group-hover/avatar:opacity-100 transition-opacity flex items-center justify-center">
+                      <Maximize2 size={12} className="text-white" />
                     </div>
-                  ) : (
-                    <div className="w-12 h-12 bg-secondary rounded-full flex-center text-xl font-black text-copper group-hover:scale-110 transition-transform">
-                      {contact.name[0]}
-                    </div>
-                  )}
+                  </div>
                   <div className="flex-1">
                     <h5 className="font-bold text-sm">{contact.name}</h5>
                     <p className="text-[11px] text-muted-foreground tracking-tight font-medium">{contact.role} {t('dashboard.at')} {contact.company}</p>
@@ -1096,7 +1194,13 @@ function Dashboard({ onExpandContact, forceSelectedContactId, appContacts, setIs
           {activeContact && (
             <div className="space-y-8 pb-12">
               <div className="flex flex-col sm:flex-row items-center sm:items-start gap-8 p-6 lg:p-8 premium-card border-b border-b-primary/30">
-                  <ContactAvatar src={activeContact.avatar} name={activeContact.name} className="w-20 h-20 lg:w-24 lg:h-24" />
+                  <ContactAvatar 
+                    src={activeContact.avatar} 
+                    name={activeContact.name} 
+                    className="w-20 h-20 lg:w-24 lg:h-24 rounded-full" 
+                    companyLogo={activeContact.organization?.logoUrl}
+                    companyDomain={activeContact.organization?.domain}
+                  />
 
                 <div className="flex-1 relative z-10">
                   <div className="flex justify-between items-start">
@@ -1158,7 +1262,7 @@ function Dashboard({ onExpandContact, forceSelectedContactId, appContacts, setIs
               </div>
 
 
-              <AIBriefingCard contactId={activeContact.id} />
+              <AIBriefingCard contact={activeContact} />
 
               {/* Notes Panel — Real API */}
               <NotesPanel
@@ -1243,6 +1347,7 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const [suggestedAction, setSuggestedAction] = useState<{ type: string, label: string } | null>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
 
   // formData must be declared BEFORE the useEffect that references it
   const [formData, setFormData] = useState({
@@ -1302,7 +1407,8 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
         personalGoal: contact.notes || '',
         relationshipScore: contact.relationshipScore || 50,
         captureMetadata: contact.captureMetadata || { capturedAt: '', meetingLocation: '' },
-        intelligence: { icebreaker: contact.intelligence?.icebreaker || '' }
+        intelligence: { icebreaker: contact.intelligence?.icebreaker || '' },
+        category: contact.category || ''
       });
     } else {
       setFormData({
@@ -1633,6 +1739,13 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
                       <h3 className="text-4xl lg:text-5xl font-black tracking-tighter text-white uppercase mb-2">Capturar Tarjeta</h3>
                       <p className="text-xs text-primary font-black uppercase tracking-[0.3em] mono">El nombre se extrae automáticamente del escaneo</p>
                     </div>
+
+                    {scanError && (
+                      <div className="mb-6 p-4 rounded-2xl bg-primary/10 border border-primary/20 flex items-center gap-3 text-xs text-primary font-bold">
+                        <AlertCircle size={16} />
+                        <span>{scanError}</span>
+                      </div>
+                    )}
 
                     <div className="flex-1 flex flex-col gap-6 justify-center">
                       <div className="grid grid-cols-2 gap-4 h-64 lg:h-80">
@@ -2124,28 +2237,51 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
 };
 
 
+const getCategoryLabel = (categoryLabel: string, lang: 'en' | 'es') => {
+  const mapping: Record<string, { en: string, es: string }> = {
+    'Private Investor': { en: 'Private Investor', es: 'Inversor Privado' },
+    'HNW': { en: 'HNW', es: 'HNW (Alto Patrimonio)' },
+    'VIP': { en: 'VIP', es: 'VIP' },
+    'Broker (Buy)': { en: 'Broker (Buy)', es: 'Broker (Comprador)' },
+    'Broker (Sell)': { en: 'Broker (Sell)', es: 'Broker (Vendedor)' },
+    'Family Office': { en: 'Family Office', es: 'Family Office' },
+    'Hedge Fund': { en: 'Hedge Fund', es: 'Hedge Fund' },
+    'Long Term Fund': { en: 'Long Term Fund', es: 'Fondo Largo Plazo' },
+  };
+  return mapping[categoryLabel]?.[lang] || categoryLabel;
+};
+
 function ContactsView({ 
   appContacts, 
   onExpandContact,
   onAddContact,
+  onImportContacts,
   onEditContact,
   onDeleteContact 
 }: { 
   appContacts: Contact[], 
   onExpandContact: (c: Contact) => void,
   onAddContact: () => void,
+  onImportContacts: () => void,
   onEditContact: (c: Contact) => void,
   onDeleteContact: (id: string) => void
 }) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [search, setSearch] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'map'>('grid');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [contactToDelete, setContactToDelete] = useState<string | null>(null);
 
-  const filtered = filterContacts(appContacts, search);
+  // Filter contacts by both search query and selected category
+  const filtered = filterContacts(appContacts, search).filter(contact => {
+    if (selectedCategory === 'all') return true;
+    return contact.category === selectedCategory;
+  });
+
+  const categories = Array.from(new Set(appContacts.map(c => c.category).filter(Boolean))) as string[];
 
   return (
-    <div className="p-4 sm:p-6 lg:p-10 h-full flex flex-col space-y-6 lg:space-y-10 overflow-x-hidden overflow-y-auto">
+    <div className={`p-4 sm:p-6 lg:p-10 h-full flex flex-col space-y-6 lg:space-y-10 ${viewMode === 'map' ? 'overflow-hidden' : 'overflow-x-hidden overflow-y-auto'}`}>
       <header className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6 flex-shrink-0">
         <div>
           <h2 className="text-3xl lg:text-5xl font-black tracking-tighter mb-2 uppercase">{t('sidebar.contacts')}</h2>
@@ -2157,40 +2293,87 @@ function ContactsView({
               <button 
                 onClick={() => setViewMode('grid')}
                 className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-primary text-white' : 'text-zinc-600 hover:text-white'}`}
+                title={t('contacts.viewGrid')}
               >
                 <LayoutGrid size={16} />
               </button>
               <button 
                 onClick={() => setViewMode('list')}
                 className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-primary text-white' : 'text-zinc-600 hover:text-white'}`}
+                title={t('contacts.viewList')}
               >
                 <List size={16} />
+              </button>
+              <button 
+                onClick={() => setViewMode('map')}
+                className={`p-2 rounded-lg transition-all ${viewMode === 'map' ? 'bg-primary text-white' : 'text-zinc-600 hover:text-white'}`}
+                title={t('contacts.viewMap')}
+              >
+                <MapPin size={16} />
               </button>
             </div>
           </div>
         </div>
         <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
+          {/* Category Filter Dropdown */}
+          <div className="relative w-full sm:w-48 flex-shrink-0">
+            <select
+              className="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:border-primary/50 focus:bg-white/10 transition-all w-full appearance-none text-white pr-10"
+              value={selectedCategory}
+              onChange={e => setSelectedCategory(e.target.value)}
+            >
+              <option value="all" className="bg-zinc-950 text-white">
+                {language === 'es' ? 'Todas las Categorías' : 'All Categories'}
+              </option>
+              {categories.map(cat => (
+                <option key={cat} value={cat} className="bg-zinc-950 text-white">
+                  {getCategoryLabel(cat, language as 'en' | 'es')}
+                </option>
+              ))}
+            </select>
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-500">
+              <ChevronDown size={16} />
+            </div>
+          </div>
+
           <div className="relative group w-full lg:w-auto">
             <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-primary transition-colors" />
             <input 
-              className="bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 py-4 text-sm focus:outline-none focus:border-primary/50 focus:bg-white/10 transition-all w-full lg:w-80"
+              className="bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 py-4 text-sm focus:outline-none focus:border-primary/50 focus:bg-white/10 transition-all w-full lg:w-80 text-white"
               placeholder={t('dashboard.search') + " (ej: company:Thorne, score>80)..."}
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
           </div>
-          <button 
-            onClick={onAddContact}
-            className="bg-primary text-white px-8 py-4 rounded-2xl flex items-center justify-center gap-3 glow-red hover:scale-105 transition-all font-black uppercase tracking-widest text-xs"
-          >
-            <Plus size={18} strokeWidth={3} />
-            {t('dashboard.addContact')}
-          </button>
+          
+          <div className="flex gap-2">
+            <button 
+              onClick={onImportContacts}
+              className="bg-white/5 border border-white/10 text-white px-6 py-4 rounded-2xl flex items-center justify-center gap-2 hover:bg-white/10 transition-all font-black uppercase tracking-widest text-xs"
+            >
+              <ArrowRight size={16} className="rotate-[-90deg]" />
+              {t('contacts.import')}
+            </button>
+            <button 
+              onClick={onAddContact}
+              className="bg-primary text-white px-8 py-4 rounded-2xl flex items-center justify-center gap-3 glow-red hover:scale-105 transition-all font-black uppercase tracking-widest text-xs flex-1 sm:flex-initial"
+            >
+              <Plus size={18} strokeWidth={3} />
+              {t('dashboard.addContact')}
+            </button>
+          </div>
         </div>
       </header>
 
       <div className="flex-1 overflow-y-auto no-scrollbar pb-10">
-        {viewMode === 'grid' ? (
+        {viewMode === 'map' ? (
+          <div className="h-[600px] border border-white/5 rounded-3xl overflow-hidden bg-zinc-950/20 relative">
+            <NetworkMapView 
+              appContacts={filtered as any} 
+              onExpandContact={onExpandContact as any} 
+            />
+          </div>
+        ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {filtered.map(contact => (
               <motion.div 
@@ -2203,9 +2386,31 @@ function ContactsView({
               >
                 <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 blur-3xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
                 
-                <div className="relative">
-                  <ContactAvatar src={contact.avatar} name={contact.name} className="w-20 h-20 rounded-2xl group-hover:scale-105 transition-transform duration-500" />
-                  <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-success border-2 border-zinc-900 shadow-glow" />
+                {/* Clean Circular Avatar */}
+                <div className="relative flex-shrink-0">
+                  <ContactAvatar 
+                    src={contact.avatar} 
+                    name={contact.name} 
+                    className="w-16 h-16 rounded-full object-cover group-hover:scale-105 transition-transform duration-500 border border-white/10 group-hover:border-primary/50" 
+                    companyLogo={contact.organization?.logoUrl}
+                    companyDomain={contact.organization?.domain}
+                  />
+                  <div className="absolute bottom-0.5 right-0.5 w-3 h-3 rounded-full bg-primary border border-zinc-950 shadow-[0_0_8px_#f91117]" />
+                </div>
+
+                {/* Relationship Score Pill Badge */}
+                <div 
+                  className="absolute top-4 right-4 flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/[0.03] border border-white/10 backdrop-blur-md text-[10px] font-mono font-bold tracking-wider"
+                  title={`${contact.relationshipScore}% Relación`}
+                >
+                  <span 
+                    className="w-1.5 h-1.5 rounded-full"
+                    style={{
+                      backgroundColor: contact.relationshipScore > 75 ? '#10b981' : contact.relationshipScore > 40 ? '#d4772c' : '#f91117',
+                      boxShadow: `0 0 8px ${contact.relationshipScore > 75 ? '#10b981' : contact.relationshipScore > 40 ? '#d4772c' : '#f91117'}`
+                    }}
+                  />
+                  <span className="text-zinc-400">{contact.relationshipScore}%</span>
                 </div>
 
                 <div className="flex-1 min-w-0">
@@ -2215,7 +2420,7 @@ function ContactsView({
                   {/* Tag badges */}
                   {contact.tags && contact.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
-                      {contact.tags.slice(0, 3).map(tag => (
+                      {contact.tags.slice(0, 2).map(tag => (
                         <span
                           key={tag.id}
                           className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border"
@@ -2224,7 +2429,7 @@ function ContactsView({
                           {tag.name}
                         </span>
                       ))}
-                      {contact.tags.length > 3 && <span className="text-[8px] text-zinc-600 mono font-bold self-center">+{contact.tags.length - 3}</span>}
+                      {contact.tags.length > 2 && <span className="text-[8px] text-zinc-600 mono font-bold self-center">+{contact.tags.length - 2}</span>}
                     </div>
                   )}
                 </div>
@@ -2255,11 +2460,11 @@ function ContactsView({
         ) : (
           <div className="space-y-2">
             <div className="grid grid-cols-12 px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-500 mono">
-              <div className="col-span-4">Nombre / Perfil</div>
-              <div className="col-span-3">Empresa / Cargo</div>
-              <div className="col-span-2">Relación</div>
-              <div className="col-span-2">Estado</div>
-              <div className="col-span-1 text-right">Acción</div>
+              <div className="col-span-4">{t('contacts.headers.profile')}</div>
+              <div className="col-span-3">{t('contacts.headers.company')}</div>
+              <div className="col-span-2">{t('contacts.headers.relationship')}</div>
+              <div className="col-span-2">{t('contacts.headers.status')}</div>
+              <div className="col-span-1 text-right">{t('contacts.headers.action')}</div>
             </div>
             {filtered.map(contact => (
               <motion.div 
@@ -2269,7 +2474,13 @@ function ContactsView({
                 onClick={() => onExpandContact(contact)}
               >
                 <div className="col-span-4 flex items-center gap-4">
-                  <ContactAvatar src={contact.avatar} name={contact.name} className="w-10 h-10 rounded-full" />
+                  <ContactAvatar 
+                    src={contact.avatar} 
+                    name={contact.name} 
+                    className="w-10 h-10 rounded-full" 
+                    companyLogo={contact.organization?.logoUrl}
+                    companyDomain={contact.organization?.domain}
+                  />
                   <div>
                     <h5 className="font-bold text-sm text-white group-hover:text-primary transition-colors">{contact.name}</h5>
                     <p className="text-[10px] text-muted-foreground mono">{contact.email}</p>
@@ -2289,8 +2500,8 @@ function ContactsView({
                 </div>
                 <div className="col-span-2">
                   <div className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-success shadow-glow" />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Activo</span>
+                    <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_6px_#f91117]" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">{t('contacts.status.active')}</span>
                   </div>
                 </div>
                 <div className="col-span-1 flex justify-end items-center gap-2">
@@ -2338,9 +2549,9 @@ function ContactsView({
                 <Trash2 size={32} className="text-primary animate-pulse" />
               </div>
               <div className="space-y-2">
-                <h3 className="text-2xl font-black tracking-tighter text-white uppercase">¿Eliminar Inteligencia?</h3>
+                <h3 className="text-2xl font-black tracking-tighter text-white uppercase">{t('contacts.deleteConfirmTitle')}</h3>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Estás a punto de borrar permanentemente este perfil ejecutivo. Esta acción es irreversible y eliminará todo el historial de interacciones.
+                  {t('contacts.deleteConfirmDesc')}
                 </p>
               </div>
               <div className="flex flex-col gap-3">
@@ -2351,13 +2562,13 @@ function ContactsView({
                   }}
                   className="w-full bg-primary text-white font-black uppercase tracking-widest py-5 rounded-2xl hover:scale-105 active:scale-95 transition-all shadow-[0_10px_30px_rgba(239,68,68,0.2)]"
                 >
-                  Confirmar Eliminación
+                  {t('contacts.confirmDelete')}
                 </button>
                 <button 
                   onClick={() => setContactToDelete(null)}
                   className="w-full bg-white/5 text-zinc-500 font-black uppercase tracking-widest py-5 rounded-2xl hover:bg-white/10 hover:text-white transition-all"
                 >
-                  Protocolo de Aborto
+                  {t('contacts.cancelDelete')}
                 </button>
               </div>
             </motion.div>
@@ -2386,8 +2597,31 @@ export default function App() {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [expandedContact, setExpandedContact] = useState<Contact | null>(null);
+  const [activeDetailTab, setActiveDetailTab] = useState<'briefing' | 'info' | 'timeline' | 'meeting-assistant'>('info');
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+
+  useEffect(() => {
+    if (expandedContact) {
+      setActiveDetailTab('info');
+    }
+  }, [expandedContact]);
+
+  const handleInteractionsChange = (contactId: string, updatedInteractions: Interaction[]) => {
+    setAppContacts(prev => prev.map(c => c.id === contactId ? { ...c, interactions: updatedInteractions } : c));
+    if (expandedContact && expandedContact.id === contactId) {
+      setExpandedContact(prev => prev ? { ...prev, interactions: updatedInteractions } : null);
+    }
+  };
+
+  const handleNotesChange = (contactId: string, updatedNotes: Note[]) => {
+    setAppContacts(prev => prev.map(c => c.id === contactId ? { ...c, notes_list: updatedNotes } : c));
+    if (expandedContact && expandedContact.id === contactId) {
+      setExpandedContact(prev => prev ? { ...prev, notes_list: updatedNotes } : null);
+    }
+  };
+
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [appContacts, setAppContacts] = useState<Contact[]>([]); // Populated by server on load
   const [contactToEdit, setContactToEdit] = useState<Contact | null>(null);
   const [externalSelectedContactId, setExternalSelectedContactId] = useState<string | null>(null);
@@ -2517,6 +2751,23 @@ export default function App() {
           }}
         />
 
+        <ImportWizardModal 
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          onImportSuccess={async () => {
+            try {
+              const data = await contactService.getAll();
+              if (Array.isArray(data)) {
+                setAppContacts(data);
+              }
+              setToastMessage('Importación completada');
+              setTimeout(() => setToastMessage(null), 4000);
+            } catch (error) {
+              console.error('Failed to reload contacts after import:', error);
+            }
+          }}
+        />
+
         {/* Immersive Background Layers */}
         <div className="absolute inset-0 z-0">
           <div className="absolute inset-0 bg-black" />
@@ -2561,6 +2812,7 @@ export default function App() {
                   appContacts={appContacts}
                   onExpandContact={setExpandedContact}
                   onAddContact={() => setIsAddModalOpen(true)}
+                  onImportContacts={() => setIsImportModalOpen(true)}
                   onEditContact={(c) => setContactToEdit(c)}
                   onDeleteContact={async (id) => {
                     try {
@@ -2575,7 +2827,46 @@ export default function App() {
                 />
               </motion.div>
             )}
-            {activeTab !== 'dashboard' && activeTab !== 'contacts' && (
+            {activeTab === 'calendar' && (
+              <motion.div
+                key="calendar"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="h-full"
+              >
+                <CalendarView 
+                  onExpandContact={setExpandedContact}
+                  appContacts={appContacts}
+                />
+              </motion.div>
+            )}
+            {activeTab === 'history' && (
+              <motion.div
+                key="history"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="h-full"
+              >
+                <HistoryTimelineView 
+                  onExpandContact={setExpandedContact}
+                  appContacts={appContacts}
+                />
+              </motion.div>
+            )}
+            {activeTab === 'integrations' && (
+              <motion.div
+                key="integrations"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="h-full"
+              >
+                <IntegrationsView />
+              </motion.div>
+            )}
+            {activeTab !== 'dashboard' && activeTab !== 'contacts' && activeTab !== 'calendar' && activeTab !== 'history' && activeTab !== 'integrations' && (
               <motion.div
                 key="placeholder"
                 initial={{ opacity: 0 }}
@@ -2600,46 +2891,96 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[100] flex items-center justify-center p-8 backdrop-blur-xl bg-black/60"
+              className="fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-xl bg-black/75"
               onClick={() => setExpandedContact(null)}
             >
               <motion.div
-                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                initial={{ scale: 0.95, opacity: 0, y: 20 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
-                exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                className="premium-card max-w-2xl w-full p-0 overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.8)]"
+                exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                className="bg-zinc-950 border border-white/10 max-w-4xl w-full h-[85vh] rounded-[2.5rem] overflow-hidden flex flex-col shadow-[0_0_80px_rgba(212,119,44,0.15)]"
                 onClick={e => e.stopPropagation()}
               >
-                <div className="relative aspect-[4/3] w-full group">
-                    <ContactAvatar 
-                      src={expandedContact.avatar} 
-                      name={expandedContact.name} 
-                      className="w-full h-full grayscale-[0.2] group-hover:grayscale-0 transition-all duration-700" 
-                      size="xl"
-                    />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
+                {/* Decorative Premium Cover Banner */}
+                <div className="relative h-36 bg-gradient-to-r from-zinc-900 via-zinc-800 to-zinc-900 border-b border-white/5 flex-shrink-0">
+                  <div className="absolute inset-0 bg-grid opacity-20" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 to-transparent" />
                   <button 
                     onClick={() => setExpandedContact(null)}
-                    className="absolute top-6 right-6 w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-white hover:bg-primary transition-colors"
+                    className="absolute top-4 right-4 w-9 h-9 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-white hover:bg-primary transition-colors z-20"
                   >
-                    <X size={20} />
+                    <X size={18} />
                   </button>
-                  
-                  <div className="absolute bottom-8 left-8 right-8">
-                    <div className="flex items-center gap-4 mb-4">
-                      <div className="h-[1px] w-12 bg-primary" />
-                      <span className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mono">AI Executive Intelligence</span>
+                </div>
+
+                {/* Profile Overview overlapping the banner */}
+                <div className="px-8 pb-6 pt-12 relative border-b border-white/5 bg-zinc-950/80 backdrop-blur-md flex-shrink-0">
+                  {/* Overlapping Avatar with circular gauge */}
+                  <div className="absolute -top-14 left-8 flex items-center justify-center">
+                    <div className="relative flex items-center justify-center w-28 h-28">
+                      <svg height={112} width={112} className="absolute rotate-[-90deg] pointer-events-none overflow-visible">
+                        <defs>
+                          <filter id={`modal-gauge-glow-${expandedContact.id}`} x="-20%" y="-20%" width="140%" height="140%">
+                            <feGaussianBlur stdDeviation="2" result="blur" />
+                            <feMerge>
+                              <feMergeNode in="blur" />
+                              <feMergeNode in="SourceGraphic" />
+                            </feMerge>
+                          </filter>
+                        </defs>
+                        <circle
+                          stroke="rgba(255,255,255,0.05)"
+                          fill="transparent"
+                          strokeWidth={2.5}
+                          r={50}
+                          cx={56}
+                          cy={56}
+                        />
+                        <circle
+                          stroke={expandedContact.relationshipScore > 75 ? '#10b981' : expandedContact.relationshipScore > 40 ? '#d4772c' : '#f91117'}
+                          fill="transparent"
+                          strokeWidth={3.5}
+                          strokeDasharray={50 * 2 * Math.PI}
+                          strokeDashoffset={50 * 2 * Math.PI - (expandedContact.relationshipScore / 100) * 50 * 2 * Math.PI}
+                          strokeLinecap="round"
+                          r={50}
+                          cx={56}
+                          cy={56}
+                          filter={`url(#modal-gauge-glow-${expandedContact.id})`}
+                          className="transition-all duration-1000 ease-out"
+                        />
+                      </svg>
+                      <ContactAvatar 
+                        src={expandedContact.avatar} 
+                        name={expandedContact.name} 
+                        className="w-20 h-20 rounded-full object-cover border-4 border-zinc-950 shadow-2xl transition-transform duration-500 hover:scale-105" 
+                        companyLogo={expandedContact.organization?.logoUrl}
+                        companyDomain={expandedContact.organization?.domain}
+                        size="lg"
+                      />
                     </div>
-                    <h2 className="text-4xl font-black text-white mb-2 tracking-tight">{expandedContact.name}</h2>
-                    <div className="flex items-center justify-between">
-                      <p className="text-muted-foreground text-sm font-medium tracking-wide uppercase">{expandedContact.role} @ {expandedContact.company}</p>
+                  </div>
+
+                  <div className="ml-28 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[9px] font-black uppercase tracking-[0.25em] text-primary mono">AI Executive Intelligence</span>
+                        <span className="w-1 h-1 rounded-full bg-zinc-700" />
+                        <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mono">Active profile</span>
+                      </div>
+                      <h2 className="text-3xl font-black text-white tracking-tight leading-none mb-2">{expandedContact.name}</h2>
+                      <p className="text-muted-foreground text-xs font-bold uppercase tracking-wider">
+                        {expandedContact.role} <span className="text-zinc-600 mx-1">•</span> {expandedContact.company}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
                           setContactToEdit(expandedContact);
                           setExpandedContact(null);
                         }}
-                        className="px-4 py-2 rounded-lg bg-primary/20 border border-primary/30 text-[10px] font-black uppercase tracking-widest text-white hover:bg-primary transition-all flex items-center gap-2"
+                        className="px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-white hover:bg-white/10 hover:border-white/20 transition-all flex items-center gap-2"
                       >
                         <Edit3 size={12} />
                         {t('dashboard.editContact')}
@@ -2647,19 +2988,165 @@ export default function App() {
                     </div>
                   </div>
                 </div>
-                
-                <div className="p-10 bg-zinc-950/50">
-                  <div className="flex gap-6 items-start">
-                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <Sparkles size={24} className="text-primary" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-black uppercase tracking-widest text-zinc-500 mb-4 tracking-[0.2em]">Rompehielo Recomendado</h4>
-                      <p className="text-xl font-medium text-white italic leading-relaxed leading-snug tracking-tight">
-                        "{mockAIBriefings[expandedContact.id as keyof typeof mockAIBriefings]?.icebreaker || "No hay rompehielo disponible"}"
-                      </p>
-                    </div>
-                  </div>
+
+                {/* Dossier Tabs */}
+                <div className="border-b border-white/5 bg-zinc-950 flex-shrink-0 flex px-8 overflow-x-auto no-scrollbar">
+                  <button 
+                    onClick={() => setActiveDetailTab('info')}
+                    className={`px-4 py-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 shrink-0 ${activeDetailTab === 'info' ? 'border-primary text-primary' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}
+                  >
+                    <Building2 size={13} />
+                    Información
+                  </button>
+                  <button 
+                    onClick={() => setActiveDetailTab('briefing')}
+                    className={`px-4 py-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 shrink-0 ${activeDetailTab === 'briefing' ? 'border-primary text-primary' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}
+                  >
+                    <Sparkles size={13} />
+                    Briefing IA
+                  </button>
+                  <button 
+                    onClick={() => setActiveDetailTab('timeline')}
+                    className={`px-4 py-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 shrink-0 ${activeDetailTab === 'timeline' ? 'border-primary text-primary' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}
+                  >
+                    <History size={13} />
+                    Historial
+                  </button>
+                  <button 
+                    onClick={() => setActiveDetailTab('meeting-assistant')}
+                    className={`px-4 py-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 shrink-0 ${activeDetailTab === 'meeting-assistant' ? 'border-primary text-primary' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}
+                  >
+                    <BrainCircuit size={13} />
+                    Reunión
+                  </button>
+                </div>
+
+                {/* Panel Dossier Content */}
+                <div className="flex-1 overflow-y-auto p-8 no-scrollbar bg-black/20">
+                  <AnimatePresence mode="wait">
+                    {activeDetailTab === 'info' && (
+                      <motion.div
+                        key="info-panel"
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        className="grid grid-cols-1 md:grid-cols-2 gap-6"
+                      >
+                        <div className="premium-card p-6 space-y-4">
+                          <h4 className="text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">{t('intelligence.contactCard')}</h4>
+                          <div>
+                            <span className="text-[10px] text-zinc-500 uppercase tracking-wider block mono">{t('contactModal.fields.email')}</span>
+                            <span className="text-sm font-bold text-white flex items-center gap-2 mt-0.5">
+                              <Mail size={14} className="text-primary" />
+                              {expandedContact.email || t('intelligence.notAvailable')}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-zinc-500 uppercase tracking-wider block mono">{t('contactModal.fields.phone')}</span>
+                            <span className="text-sm font-bold text-white flex items-center gap-2 mt-0.5">
+                              <Phone size={14} className="text-primary" />
+                              {expandedContact.phone || t('intelligence.notAvailable')}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-zinc-500 uppercase tracking-wider block mono">{t('contactModal.fields.location')}</span>
+                            <span className="text-sm font-bold text-white flex items-center gap-2 mt-0.5">
+                              <Globe size={14} className="text-primary" />
+                              {expandedContact.location || t('intelligence.noLocation')}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="premium-card p-6 space-y-4">
+                          <h4 className="text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">{t('intelligence.businessContext')}</h4>
+                          <div>
+                            <span className="text-[10px] text-zinc-500 uppercase tracking-wider block mono">{t('contactModal.fields.company')}</span>
+                            <span className="text-sm font-bold text-white flex items-center gap-2 mt-0.5">
+                              <Building2 size={14} className="text-copper" />
+                              {expandedContact.company || t('intelligence.notAvailable')}
+                            </span>
+                          </div>
+                          {expandedContact.organization?.domain && (
+                            <div>
+                              <span className="text-[10px] text-zinc-500 uppercase tracking-wider block mono">{t('contactModal.fields.website')}</span>
+                              <a 
+                                href={expandedContact.organization.domain.startsWith('http') ? expandedContact.organization.domain : `https://${expandedContact.organization.domain}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm font-bold text-primary hover:underline flex items-center gap-2 mt-0.5"
+                              >
+                                <ExternalLink size={14} />
+                                {expandedContact.organization.domain}
+                              </a>
+                            </div>
+                          )}
+                          <div>
+                            <span className="text-[10px] text-zinc-500 uppercase tracking-wider block mono">{t('intelligence.relationshipScore')}</span>
+                            <div className="flex items-center gap-3 mt-1">
+                              <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-primary" 
+                                  style={{ width: `${expandedContact.relationshipScore}%` }} 
+                                />
+                              </div>
+                              <span className="text-xs font-bold text-white mono">{expandedContact.relationshipScore}%</span>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {activeDetailTab === 'briefing' && (
+                      <motion.div
+                        key="briefing-panel"
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        className="space-y-6 animate-fade-in"
+                      >
+                        <AIBriefingCard contact={expandedContact} />
+                      </motion.div>
+                    )}
+
+                    {activeDetailTab === 'timeline' && (
+                      <motion.div
+                        key="timeline-panel"
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        className="space-y-6"
+                      >
+                        <NotesPanel 
+                          contactId={expandedContact.id} 
+                          initialNotes={expandedContact.notes_list ?? []} 
+                          onNotesChange={(notes) => handleNotesChange(expandedContact.id, notes)} 
+                        />
+                        <InteractionLog 
+                          contactId={expandedContact.id} 
+                          initialInteractions={expandedContact.interactions ?? []} 
+                          onInteractionsChange={(ixs) => handleInteractionsChange(expandedContact.id, ixs)} 
+                        />
+                      </motion.div>
+                    )}
+
+                    {activeDetailTab === 'meeting-assistant' && (
+                      <motion.div
+                        key="meeting-assistant-panel"
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        className="space-y-6"
+                      >
+                        <MeetingAssistantTab 
+                          contact={expandedContact}
+                          onUpdateContact={(updatedContact) => {
+                            setExpandedContact(updatedContact);
+                            setAppContacts(prev => prev.map(c => c.id === updatedContact.id ? updatedContact : c));
+                          }}
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </motion.div>
             </motion.div>
