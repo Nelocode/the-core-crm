@@ -1152,7 +1152,7 @@ function Dashboard({ onExpandContact, forceSelectedContactId, appContacts, setIs
           <section className="space-y-4">
             <h3 className="text-xs font-black uppercase tracking-[0.2em] text-white pt-4">{t('dashboard.recentContacts')}</h3>
             <div className="space-y-3">
-              {appContacts.map(contact => (
+              {appContacts.slice(0, 15).map(contact => (
                 <div 
                   key={contact.id} 
                   onClick={() => setSelectedContactId(contact.id)}
@@ -1181,6 +1181,18 @@ function Dashboard({ onExpandContact, forceSelectedContactId, appContacts, setIs
                   <ChevronRight size={16} strokeWidth={1.5} className="text-muted-foreground group-hover:text-copper transition-colors" />
                 </div>
               ))}
+              {appContacts.length > 15 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const tabEvent = new CustomEvent('core:switch-tab', { detail: 'contacts' });
+                    window.dispatchEvent(tabEvent);
+                  }}
+                  className="w-full py-4 border border-dashed border-white/10 hover:border-white/20 text-zinc-500 hover:text-white rounded-xl text-center text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer bg-white/[0.01]"
+                >
+                  Ver todos los contactos ({appContacts.length} perfiles)
+                </button>
+              )}
             </div>
           </section>
         </div>
@@ -1744,6 +1756,41 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
           {/* Quick Add Flow for New Contacts */}
           {!contact ? (
             <div className="flex-1 flex flex-col h-full">
+              {quickAddStep !== 'SUCCESS' && (
+                <div className="px-8 pt-8 pb-4 flex items-center justify-start gap-4 lg:gap-6 border-b border-white/5 bg-zinc-950/40">
+                  {[
+                    { id: 'CAPTURE', label: 'Tarjeta' },
+                    { id: 'NOTES', label: 'Notas' },
+                    { id: 'CATEGORY', label: 'Categoría' }
+                  ].map((stepItem, idx) => {
+                    const isCompleted = 
+                      (quickAddStep === 'NOTES' && idx === 0) || 
+                      (quickAddStep === 'CATEGORY' && (idx === 0 || idx === 1));
+                    const isActive = quickAddStep === stepItem.id;
+                    return (
+                      <div key={stepItem.id} className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[9px] font-black tracking-wider transition-colors duration-300 ${
+                            isActive ? 'text-primary' : isCompleted ? 'text-white' : 'text-zinc-600'
+                          }`}>
+                            0{idx + 1}
+                          </span>
+                          <span className={`text-[9px] uppercase tracking-[0.15em] transition-all duration-300 ${
+                            isActive ? 'text-white font-black' : isCompleted ? 'text-zinc-400' : 'text-zinc-600'
+                          }`}>
+                            {stepItem.label}
+                          </span>
+                        </div>
+                        {idx < 2 && (
+                          <div className={`w-4 lg:w-8 h-[1px] transition-colors duration-300 ${
+                            isCompleted ? 'bg-primary' : 'bg-zinc-800'
+                          }`} />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               <AnimatePresence mode="wait">
                 {/* STEP 1: CAPTURE PHOTO */}
                 {quickAddStep === 'CAPTURE' && (
@@ -1909,29 +1956,19 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
                         <button 
                           type="button"
                           onClick={() => setQuickAddStep('CAPTURE')}
-                          className="w-1/3 bg-white/5 text-white py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] flex items-center justify-center hover:bg-white/10 transition-all text-xs"
+                          className="w-1/3 bg-white/5 text-white py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] flex items-center justify-center hover:bg-white/10 transition-all text-xs cursor-pointer"
                         >
                           Volver
                         </button>
                         <button 
                           type="button"
+                          disabled={!formData.name?.trim()}
                           onClick={() => setQuickAddStep('CATEGORY')}
-                          className="w-2/3 bg-primary text-white py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] shadow-glow flex items-center justify-center gap-3 hover:scale-[1.02] transition-all text-xs"
+                          className="w-2/3 bg-primary text-white py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] shadow-glow flex items-center justify-center gap-3 hover:scale-[1.02] disabled:opacity-40 disabled:cursor-not-allowed disabled:scale-100 transition-all text-xs cursor-pointer"
                         >
-                          Categorizar <ArrowRight size={20} />
+                          Continuar <ArrowRight size={20} />
                         </button>
                       </div>
-                      <button 
-                        type="button"
-                        disabled={!formData.name?.trim()}
-                        onClick={(e) => {
-                          handleSubmit(e as any);
-                          setQuickAddStep('SUCCESS');
-                        }}
-                        className="w-full border border-white/10 text-zinc-400 py-4 rounded-[2rem] font-black uppercase tracking-[0.2em] hover:bg-white/5 hover:text-white transition-all text-[10px] disabled:opacity-30 disabled:cursor-not-allowed"
-                      >
-                        Guardar Directamente
-                      </button>
                     </div>
                   </motion.div>
                 )}
@@ -2290,6 +2327,12 @@ function ContactsView({
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'map'>('grid');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [contactToDelete, setContactToDelete] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(30);
+
+  // Reset pagination when search or category changes
+  useEffect(() => {
+    setVisibleCount(30);
+  }, [search, selectedCategory]);
 
   // Filter contacts by both search query and selected category
   const filtered = filterContacts(appContacts, search).filter(contact => {
@@ -2394,7 +2437,7 @@ function ContactsView({
           </div>
         ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {filtered.map(contact => (
+            {filtered.slice(0, visibleCount).map(contact => (
               <motion.div 
                 key={contact.id}
                 layout
@@ -2485,7 +2528,7 @@ function ContactsView({
               <div className="col-span-2">{t('contacts.headers.status')}</div>
               <div className="col-span-1 text-right">{t('contacts.headers.action')}</div>
             </div>
-            {filtered.map(contact => (
+            {filtered.slice(0, visibleCount).map(contact => (
               <motion.div 
                 key={contact.id}
                 layout
@@ -2545,6 +2588,18 @@ function ContactsView({
                 </div>
               </motion.div>
             ))}
+          </div>
+        )}
+
+        {filtered.length > visibleCount && (
+          <div className="flex justify-center pt-8 pb-4">
+            <button 
+              type="button"
+              onClick={() => setVisibleCount(prev => prev + 30)}
+              className="px-8 py-4 bg-white/5 border border-white/10 hover:border-white/20 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:scale-105 active:scale-95 transition-all cursor-pointer shadow-glow-sm"
+            >
+              Cargar Más ({filtered.length - visibleCount} perfiles restantes)
+            </button>
           </div>
         )}
       </div>
@@ -2624,6 +2679,15 @@ export default function App() {
       setActiveDetailTab('info');
     }
   }, [expandedContact]);
+
+  useEffect(() => {
+    const handleSwitchTab = (e: Event) => {
+      const tab = (e as CustomEvent).detail;
+      if (tab) setActiveTab(tab);
+    };
+    window.addEventListener('core:switch-tab', handleSwitchTab);
+    return () => window.removeEventListener('core:switch-tab', handleSwitchTab);
+  }, []);
 
   const handleInteractionsChange = (contactId: string, updatedInteractions: Interaction[]) => {
     setAppContacts(prev => prev.map(c => c.id === contactId ? { ...c, interactions: updatedInteractions } : c));
