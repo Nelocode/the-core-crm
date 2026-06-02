@@ -2729,13 +2729,18 @@ export default function App() {
         <AnimatePresence>
           {toastMessage && (
             <motion.div
-              initial={{ opacity: 0, y: 50 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 50 }}
-              className="fixed bottom-6 right-6 z-[300] bg-primary text-white px-6 py-4 rounded-2xl shadow-glow font-black uppercase tracking-widest text-[10px] flex items-center gap-3"
+              initial={{ opacity: 0, y: -40, x: "-50%", scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, x: "-50%", scale: 1 }}
+              exit={{ opacity: 0, y: -30, x: "-50%", scale: 0.95 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              className="fixed top-6 left-1/2 z-[300] bg-zinc-950/85 backdrop-blur-md border border-white/10 text-white px-6 py-3.5 rounded-full shadow-[0_10px_40px_rgba(0,0,0,0.5),0_0_20px_rgba(249,17,23,0.05)] font-black uppercase tracking-widest text-[9px] flex items-center gap-3"
             >
-              <CheckCircle size={16} />
-              {toastMessage}
+              {toastMessage.includes('Error') || toastMessage.includes('⚠') ? (
+                <span className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_10px_#f91117]" />
+              ) : (
+                <CheckCircle size={14} className="text-primary animate-pulse" />
+              )}
+              <span className="font-semibold tracking-[0.1em]">{toastMessage}</span>
             </motion.div>
           )}
         </AnimatePresence>
