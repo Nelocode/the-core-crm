@@ -1390,6 +1390,14 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
       if (!contact) setQuickAddStep('CAPTURE');
     }
     if (contact) {
+      // Safe checks for children and hobbies
+      const safeChildren = Array.isArray(contact.family?.children)
+        ? contact.family.children.join(', ')
+        : (contact.family?.children != null ? String(contact.family.children) : '');
+      const safeHobbies = Array.isArray(contact.hobbies)
+        ? contact.hobbies.join(', ')
+        : (contact.hobbies != null ? String(contact.hobbies) : '');
+
       setFormData({
         name: contact.name || '',
         role: contact.role || '',
@@ -1402,8 +1410,8 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
         birthday: '', // Assuming these might not be in the mock data but in the type soon
         spouseName: contact.family?.spouse || '',
         spouseBirthday: '',
-        children: contact.family?.children?.join(', ') || '',
-        hobbies: contact.hobbies?.join(', ') || '',
+        children: safeChildren,
+        hobbies: safeHobbies,
         personalGoal: contact.notes || '',
         relationshipScore: contact.relationshipScore || 50,
         captureMetadata: contact.captureMetadata || { capturedAt: '', meetingLocation: '' },
@@ -1652,13 +1660,24 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Guard: name is required — never save a ghost contact
     if (!formData.name?.trim()) {
       alert('Por favor ingresa el nombre del contacto.');
       return;
     }
+
+    // Guard: prevent saving empty contacts (require card scan, notes, or details)
+    const hasCardScan = !!(formData.captureMetadata?.capturedAt);
+    const hasNotes = !!(formData.personalGoal?.trim());
+    const hasContactDetails = !!(formData.email?.trim() || formData.phone?.trim() || formData.company?.trim() || formData.role?.trim());
+
+    if (!hasCardScan && !hasNotes && !hasContactDetails) {
+      alert('Para guardar el contacto, debes ingresar al menos algún detalle (como Correo, Teléfono, Empresa, Cargo), escribir una nota, grabar una nota de voz, o escanear una tarjeta.');
+      return;
+    }
+
     const contactData: Contact = {
       id: contact?.id || Math.random().toString(36).substr(2, 9),
       name: formData.name.trim(),
