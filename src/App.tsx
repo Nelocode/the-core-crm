@@ -1389,7 +1389,7 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
   });
 
   useEffect(() => {
-    const text = (formData.personalGoal || '').toLowerCase();
+    const text = String(formData.personalGoal || '').toLowerCase();
     if (text.includes('llamar') || text.includes('call')) {
       setSuggestedAction({ type: 'call', label: '📞 Programar llamada' });
     } else if (text.includes('reunion') || text.includes('reunión') || text.includes('meeting')) {
@@ -1429,7 +1429,9 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
         spouseBirthday: '',
         children: safeChildren,
         hobbies: safeHobbies,
-        personalGoal: contact.notes || '',
+        personalGoal: Array.isArray(contact.notes)
+          ? contact.notes.map((n: any) => n.content).join('\n')
+          : (typeof contact.notes === 'string' ? contact.notes : ''),
         relationshipScore: contact.relationshipScore || 50,
         captureMetadata: contact.captureMetadata || { capturedAt: '', meetingLocation: '' },
         intelligence: { icebreaker: contact.intelligence?.icebreaker || '' },
