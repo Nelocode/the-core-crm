@@ -335,7 +335,12 @@ function AIBriefingCard({ contact }: { contact: Contact }) {
   const icebreaker = contact.aiIcebreaker || contact.intelligence?.icebreaker;
   const strategicContext = contact.aiStrategicContext || contact.intelligence?.strategicContext;
   const sentiment = contact.aiSentiment || contact.intelligence?.sentiment;
-  const keyInterests = contact.aiKeyInterests || contact.intelligence?.keyInterests || [];
+  const keyInterestsRaw = contact.aiKeyInterests || contact.intelligence?.keyInterests || [];
+  const keyInterests = Array.isArray(keyInterestsRaw)
+    ? keyInterestsRaw
+    : (typeof keyInterestsRaw === 'string'
+        ? (keyInterestsRaw as string).split(',').map(s => s.trim()).filter(Boolean)
+        : []);
 
   const hasAIBrief = !!(icebreaker || strategicContext || sentiment || keyInterests.length > 0);
 
