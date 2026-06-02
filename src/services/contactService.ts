@@ -7,9 +7,9 @@ const INTERACTIONS_URL = `${ENGINE_URL}/api/interactions`;
 const NOTES_URL = `${ENGINE_URL}/api/notes`;
 const TAGS_URL = `${ENGINE_URL}/api/tags`;
 
-const CACHE_KEY = 'core_contacts_v2';
-const QUEUE_KEY = 'core_sync_queue_v2';
-const CACHE_VERSION = 2;
+const CACHE_KEY = 'core_contacts_v3';
+const QUEUE_KEY = 'core_sync_queue_v3';
+const CACHE_VERSION = 3;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
