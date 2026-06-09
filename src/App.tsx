@@ -3058,8 +3058,8 @@ export default function App() {
                 {/* Profile Overview overlapping the banner */}
                 <div className="px-8 pb-6 pt-12 relative border-b border-white/5 bg-zinc-950/80 backdrop-blur-md flex-shrink-0">
                   {/* Overlapping Avatar with circular gauge */}
-                  <div className="absolute -top-14 left-8 flex items-center justify-center">
-                    <div className="relative flex items-center justify-center w-28 h-28">
+                  <div className="absolute -top-14 left-1/2 -translate-x-1/2 md:left-8 md:translate-x-0 flex items-center justify-center z-10">
+                    <div className="relative flex items-center justify-center w-28 h-28 bg-zinc-950 rounded-full border border-white/5 shadow-2xl">
                       <svg height={112} width={112} className="absolute rotate-[-90deg] pointer-events-none overflow-visible">
                         <defs>
                           <filter id={`modal-gauge-glow-${expandedContact.id}`} x="-20%" y="-20%" width="140%" height="140%">
@@ -3103,9 +3103,9 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="ml-28 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="ml-0 pt-16 md:ml-28 md:pt-0 flex flex-col md:flex-row md:items-center justify-between gap-4 text-center md:text-left">
                     <div>
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 justify-center md:justify-start">
                         <span className="text-[9px] font-black uppercase tracking-[0.25em] text-primary mono">AI Executive Intelligence</span>
                         <span className="w-1 h-1 rounded-full bg-zinc-700" />
                         <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mono">Active profile</span>
@@ -3115,7 +3115,7 @@ export default function App() {
                         {expandedContact.role} <span className="text-zinc-600 mx-1">•</span> {expandedContact.company}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 justify-center md:justify-start">
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
@@ -3132,35 +3132,40 @@ export default function App() {
                 </div>
 
                 {/* Dossier Tabs */}
-                <div className="border-b border-white/5 bg-zinc-950 flex-shrink-0 flex px-8 overflow-x-auto no-scrollbar">
-                  <button 
-                    onClick={() => setActiveDetailTab('info')}
-                    className={`px-4 py-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 shrink-0 ${activeDetailTab === 'info' ? 'border-primary text-primary' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}
-                  >
-                    <Building2 size={13} />
-                    Información
-                  </button>
-                  <button 
-                    onClick={() => setActiveDetailTab('briefing')}
-                    className={`px-4 py-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 shrink-0 ${activeDetailTab === 'briefing' ? 'border-primary text-primary' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}
-                  >
-                    <Sparkles size={13} />
-                    Briefing IA
-                  </button>
-                  <button 
-                    onClick={() => setActiveDetailTab('timeline')}
-                    className={`px-4 py-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 shrink-0 ${activeDetailTab === 'timeline' ? 'border-primary text-primary' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}
-                  >
-                    <History size={13} />
-                    Historial
-                  </button>
-                  <button 
-                    onClick={() => setActiveDetailTab('meeting-assistant')}
-                    className={`px-4 py-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 shrink-0 ${activeDetailTab === 'meeting-assistant' ? 'border-primary text-primary' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}
-                  >
-                    <BrainCircuit size={13} />
-                    Reunión
-                  </button>
+                <div className="relative border-b border-white/5 bg-zinc-950 flex-shrink-0">
+                  <div className="flex px-4 md:px-8 overflow-x-auto no-scrollbar scroll-smooth">
+                    <button 
+                      onClick={() => setActiveDetailTab('info')}
+                      className={`px-3 md:px-4 py-3.5 md:py-4 text-[10px] md:text-xs font-black uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 shrink-0 ${activeDetailTab === 'info' ? 'border-primary text-primary' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}
+                    >
+                      <Building2 size={13} />
+                      Información
+                    </button>
+                    <button 
+                      onClick={() => setActiveDetailTab('briefing')}
+                      className={`px-3 md:px-4 py-3.5 md:py-4 text-[10px] md:text-xs font-black uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 shrink-0 ${activeDetailTab === 'briefing' ? 'border-primary text-primary' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}
+                    >
+                      <Sparkles size={13} />
+                      Briefing IA
+                    </button>
+                    <button 
+                      onClick={() => setActiveDetailTab('timeline')}
+                      className={`px-3 md:px-4 py-3.5 md:py-4 text-[10px] md:text-xs font-black uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 shrink-0 ${activeDetailTab === 'timeline' ? 'border-primary text-primary' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}
+                    >
+                      <History size={13} />
+                      Historial
+                    </button>
+                    <button 
+                      onClick={() => setActiveDetailTab('meeting-assistant')}
+                      className={`px-3 md:px-4 py-3.5 md:py-4 text-[10px] md:text-xs font-black uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 shrink-0 ${activeDetailTab === 'meeting-assistant' ? 'border-primary text-primary' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}
+                    >
+                      <BrainCircuit size={13} />
+                      Reunión
+                    </button>
+                  </div>
+                  {/* Subtle horizontal scroll fade indicator */}
+                  <div className="absolute right-0 top-0 bottom-0 w-6 pointer-events-none bg-gradient-to-l from-zinc-950 to-transparent md:hidden" />
+                  <div className="absolute left-0 top-0 bottom-0 w-6 pointer-events-none bg-gradient-to-r from-zinc-950 to-transparent md:hidden" />
                 </div>
 
                 {/* Panel Dossier Content */}
