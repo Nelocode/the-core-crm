@@ -2714,6 +2714,7 @@ export default function App() {
   useEffect(() => {
     if (expandedContact) {
       setActiveDetailTab('info');
+      setShowDeleteConfirm(false);
     }
   }, [expandedContact]);
 
@@ -2737,6 +2738,19 @@ export default function App() {
     setAppContacts(prev => prev.map(c => c.id === contactId ? { ...c, notes_list: updatedNotes } : c));
     if (expandedContact && expandedContact.id === contactId) {
       setExpandedContact(prev => prev ? { ...prev, notes_list: updatedNotes } : null);
+    }
+  };
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const handleDeleteContact = async (id: string) => {
+    try {
+      await contactService.delete(id);
+      setAppContacts(prev => prev.filter(c => c.id !== id));
+      setToastMessage(t('dashboard.toasts.contactDeleted'));
+    } catch (error) {
+      console.error('Failed to delete contact:', error);
+      setToastMessage(t('dashboard.toasts.deleteError'));
     }
   };
 
@@ -2940,16 +2954,7 @@ export default function App() {
                   onAddContact={() => setIsAddModalOpen(true)}
                   onImportContacts={() => setIsImportModalOpen(true)}
                   onEditContact={(c) => setContactToEdit(c)}
-                  onDeleteContact={async (id) => {
-                    try {
-                      await contactService.delete(id);
-                      setAppContacts(prev => prev.filter(c => c.id !== id));
-                      setToastMessage('Contacto eliminado');
-                    } catch (error) {
-                      console.error('Failed to delete contact:', error);
-                      setToastMessage('Error al eliminar contacto');
-                    }
-                  }}
+                  onDeleteContact={handleDeleteContact}
                 />
               </motion.div>
             )}
@@ -3127,6 +3132,16 @@ export default function App() {
                         <Edit3 size={12} />
                         {t('dashboard.editContact')}
                       </button>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowDeleteConfirm(true);
+                        }}
+                        className="px-4 py-2.5 rounded-xl bg-red-950/20 border border-red-500/20 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-red-950/40 hover:border-red-500/40 transition-all flex items-center gap-2"
+                      >
+                        <Trash2 size={12} />
+                        {t('contacts.confirmDelete').includes('Eliminación') ? 'Eliminar' : 'Delete'}
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -3294,6 +3309,55 @@ export default function App() {
                       </motion.div>
                     )}
                   </AnimatePresence>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Delete Confirmation Modal for Expanded Contact */}
+        <AnimatePresence>
+          {showDeleteConfirm && expandedContact && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[120] flex items-center justify-center p-4 backdrop-blur-3xl bg-black/85"
+              onClick={() => setShowDeleteConfirm(false)}
+            >
+              <motion.div 
+                initial={{ scale: 0.9, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                className="w-full max-w-md bg-zinc-950 border border-white/10 rounded-[2.5rem] p-10 text-center space-y-8 shadow-[0_0_100px_rgba(249,17,23,0.15)]"
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                  <Trash2 size={32} className="text-primary animate-pulse" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-2xl font-black tracking-tighter text-white uppercase">{t('contacts.deleteConfirmTitle')}</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {t('contacts.deleteConfirmDesc')}
+                  </p>
+                </div>
+                <div className="flex flex-col gap-3">
+                  <button 
+                    onClick={async () => {
+                      const id = expandedContact.id;
+                      await handleDeleteContact(id);
+                      setShowDeleteConfirm(false);
+                      setExpandedContact(null);
+                    }}
+                    className="w-full bg-primary text-white font-black uppercase tracking-widest py-5 rounded-2xl hover:scale-105 active:scale-95 transition-all shadow-[0_10px_30px_rgba(239,68,68,0.2)]"
+                  >
+                    {t('contacts.confirmDelete')}
+                  </button>
+                  <button 
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="w-full bg-white/5 text-zinc-500 font-black uppercase tracking-widest py-5 rounded-2xl hover:bg-white/10 hover:text-white transition-all"
+                  >
+                    {t('contacts.cancelDelete')}
+                  </button>
                 </div>
               </motion.div>
             </motion.div>
