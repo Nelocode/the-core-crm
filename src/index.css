@@ -75,7 +75,7 @@
 }
 
 .input-core {
-  @apply w-full bg-white/[0.03] border border-white/10 rounded-2xl px-6 py-5 text-white focus:outline-none focus:border-primary/50 focus:bg-white/[0.08] transition-all duration-300 font-medium placeholder:text-zinc-700;
+  @apply w-full bg-white/[0.03] border border-white/10 rounded-2xl px-6 py-5 text-base md:text-sm text-white focus:outline-none focus:border-primary/50 focus:bg-white/[0.08] transition-all duration-300 font-medium placeholder:text-zinc-700;
 }
 
 .input-core option {
@@ -159,8 +159,8 @@
 }
 
 /* Touch targets */
-button, input, select {
-  @apply min-h-[44px];
+button, input, select, textarea {
+  @apply min-h-[48px];
 }
 
 /* Mobile Nav Styles */

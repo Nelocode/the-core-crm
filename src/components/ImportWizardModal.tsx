@@ -261,7 +261,7 @@ export default function ImportWizardModal({ isOpen, onClose, onImportSuccess }: 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4">
       {/* Backdrop */}
       <motion.div 
         initial={{ opacity: 0 }}
@@ -276,10 +276,10 @@ export default function ImportWizardModal({ isOpen, onClose, onImportSuccess }: 
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
-        className="premium-card w-full max-w-4xl bg-zinc-950 border border-white/10 rounded-3xl overflow-hidden shadow-2xl relative z-10 flex flex-col max-h-[85vh]"
+        className="premium-card w-full h-full sm:h-auto sm:max-h-[85vh] max-w-4xl bg-zinc-950 border-0 sm:border border-white/10 rounded-none sm:rounded-3xl overflow-hidden shadow-2xl relative z-10 flex flex-col"
       >
         {/* Header */}
-        <header className="px-6 py-5 border-b border-white/5 flex items-center justify-between">
+        <header className="px-6 pt-[calc(1.25rem+env(safe-area-inset-top))] sm:pt-5 pb-5 border-b border-white/5 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
             <Table className="text-primary w-6 h-6" />
             <div>

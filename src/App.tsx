@@ -305,9 +305,12 @@ function MobileNav({ activeTab, setActiveTab, setIsAddModalOpen }: {
     { id: 'integrations', icon: Zap, label: t('sidebar.integrations') },
   ];
 
+  const leftItems = menuItems.slice(0, 2);
+  const rightItems = menuItems.slice(2);
+
   return (
-    <div className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] glass rounded-t-[2.5rem] p-4 pb-8 flex items-center justify-around border-t border-white/5 backdrop-blur-3xl">
-      {menuItems.map((item) => (
+    <div className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] glass rounded-t-[2.5rem] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] flex items-center justify-around border-t border-white/5 backdrop-blur-3xl">
+      {leftItems.map((item) => (
         <button
           key={item.id}
           onClick={() => setActiveTab(item.id)}
@@ -321,13 +324,25 @@ function MobileNav({ activeTab, setActiveTab, setIsAddModalOpen }: {
       ))}
       <button 
         onClick={() => setIsAddModalOpen(true)}
-        className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white shadow-lg glow-red -translate-y-4 border-4 border-black"
+        className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white shadow-lg glow-red -translate-y-4 border-4 border-black transition-transform active:scale-95 shrink-0"
       >
         <Plus size={24} strokeWidth={3} />
       </button>
+      {rightItems.map((item) => (
+        <button
+          key={item.id}
+          onClick={() => setActiveTab(item.id)}
+          className={`flex flex-col items-center gap-1 transition-all ${
+            activeTab === item.id ? 'text-primary scale-110' : 'text-muted-foreground'
+          }`}
+        >
+          <item.icon size={20} strokeWidth={activeTab === item.id ? 2.5 : 1.5} />
+          <span className="text-[8px] font-black uppercase tracking-widest">{item.label}</span>
+        </button>
+      ))}
     </div>
   );
-};
+}
 
 function AIBriefingCard({ contact }: { contact: Contact }) {
   const { t } = useTranslation();
@@ -346,7 +361,7 @@ function AIBriefingCard({ contact }: { contact: Contact }) {
 
   if (!hasAIBrief) {
     return (
-      <div className="premium-card p-8 border border-dashed border-white/10 flex flex-col items-center justify-center text-center gap-4">
+      <div className="premium-card p-4 sm:p-8 border border-dashed border-white/10 flex flex-col items-center justify-center text-center gap-4">
         <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-zinc-500">
           <BrainCircuit size={20} />
         </div>
@@ -364,7 +379,7 @@ function AIBriefingCard({ contact }: { contact: Contact }) {
     <motion.div 
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="premium-card p-8 border-t border-t-copper/30 relative"
+      className="premium-card p-4 sm:p-8 border-t border-t-copper/30 relative"
     >
       <div className="absolute top-0 right-0 p-6 opacity-5 pointer-events-none">
         <BrainCircuit size={120} className="text-copper animate-pulse" />
@@ -1061,13 +1076,13 @@ function NotesPanel({
   );
 }
 
-function Dashboard({ onExpandContact, forceSelectedContactId, appContacts, setIsAddModalOpen, onEditContact }: { 
+function Dashboard({ onExpandContact, forceSelectedContactId, appContacts, setIsAddModalOpen, onEditContact, isMobile }: { 
   onExpandContact: (c: Contact) => void,
-
   forceSelectedContactId?: string | null,
   appContacts: Contact[],
   setIsAddModalOpen: (open: boolean) => void,
-  onEditContact: (c: Contact) => void
+  onEditContact: (c: Contact) => void,
+  isMobile: boolean
 }) {
   const { t } = useTranslation();
   const [selectedMeeting, setSelectedMeeting] = useState(meetings?.[0] || null);
@@ -1087,10 +1102,10 @@ function Dashboard({ onExpandContact, forceSelectedContactId, appContacts, setIs
     : (selectedMeeting?.attendees?.[0] ? appContacts.find(c => c.id === selectedMeeting.attendees[0]) : appContacts[0]);
 
   return (
-    <div className="flex flex-col h-full max-w-[1600px] mx-auto overflow-x-hidden overflow-y-auto lg:overflow-hidden pb-24 lg:pb-0">
-      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-end p-6 lg:p-8 pb-4 flex-shrink-0 gap-6">
+    <div className="flex flex-col h-full max-w-[1600px] mx-auto overflow-x-hidden overflow-y-auto lg:overflow-hidden pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-0">
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-end p-6 pt-[calc(1.5rem+env(safe-area-inset-top))] lg:p-8 pb-4 flex-shrink-0 gap-6">
         <div>
-          <h2 className="text-4xl font-black tracking-tighter mb-1 uppercase">{t('dashboard.title')}</h2>
+          <h2 className="text-3xl sm:text-4xl font-black tracking-tighter mb-1 uppercase">{t('dashboard.title')}</h2>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-success animate-pulse glow" />
             <p className="text-[10px] text-muted-foreground uppercase tracking-widest mono">{t('dashboard.syncStatus')} • {t('dashboard.justNow')}</p>
@@ -1160,7 +1175,13 @@ function Dashboard({ onExpandContact, forceSelectedContactId, appContacts, setIs
               {appContacts.slice(0, 15).map(contact => (
                 <div 
                   key={contact.id} 
-                  onClick={() => setSelectedContactId(contact.id)}
+                  onClick={() => {
+                    if (isMobile) {
+                      onExpandContact(contact);
+                    } else {
+                      setSelectedContactId(contact.id);
+                    }
+                  }}
                   className={`flex items-center gap-4 p-4 rounded-xl border transition-all duration-300 cursor-pointer group ${
                     (selectedContactId === contact.id || (!selectedContactId && activeContact?.id === contact.id)) 
                       ? 'bg-white/10 border-white/20 shadow-sm' 
@@ -1755,7 +1776,7 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
           {/* Close Button (Universal) */}
           <button 
             onClick={onClose} 
-            className="absolute top-6 right-6 z-[160] w-12 h-12 rounded-full bg-white/5 flex items-center justify-center hover:bg-primary transition-all group"
+            className="absolute top-[calc(1.5rem+env(safe-area-inset-top))] right-6 lg:top-6 lg:right-6 z-[160] w-12 h-12 rounded-full bg-white/5 flex items-center justify-center hover:bg-primary transition-all group"
           >
             <X size={24} className="text-zinc-500 group-hover:text-white" />
           </button>
@@ -1764,7 +1785,7 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
           {!contact ? (
             <div className="flex-1 flex flex-col h-full">
               {quickAddStep !== 'SUCCESS' && (
-                <div className="px-8 pt-8 pb-4 flex items-center justify-start gap-4 lg:gap-6 border-b border-white/5 bg-zinc-950/40">
+                <div className="px-6 pt-[calc(1.5rem+env(safe-area-inset-top))] lg:pt-8 pb-4 flex items-center justify-start gap-4 lg:gap-6 border-b border-white/5 bg-zinc-950/40">
                   {[
                     { id: 'CAPTURE', label: 'Tarjeta' },
                     { id: 'NOTES', label: 'Notas' },
@@ -2159,7 +2180,7 @@ function ContactModal({ isOpen, onClose, onSave, contact }: {
               </AnimatePresence>
 
               {/* Header & Tabs Navigation */}
-              <div className="p-6 lg:p-10 pb-0 lg:pb-0 space-y-6 lg:space-y-8 flex-shrink-0">
+              <div className="p-6 pt-[calc(1.5rem+env(safe-area-inset-top))] lg:p-10 pb-0 lg:pb-0 space-y-6 lg:space-y-8 flex-shrink-0">
                 <div>
                   <h3 className="text-3xl lg:text-4xl font-black tracking-tighter text-white uppercase">
                     {t('dashboard.editContact')}
@@ -2350,10 +2371,10 @@ function ContactsView({
   const categories = Array.from(new Set(appContacts.map(c => c.category).filter(Boolean))) as string[];
 
   return (
-    <div className={`p-4 sm:p-6 lg:p-10 h-full flex flex-col space-y-6 lg:space-y-10 ${viewMode === 'map' ? 'overflow-hidden' : 'overflow-x-hidden overflow-y-auto'}`}>
+    <div className={`p-4 pt-[calc(1.5rem+env(safe-area-inset-top))] sm:p-6 lg:p-10 h-full flex flex-col space-y-6 lg:space-y-10 ${viewMode === 'map' ? 'overflow-hidden' : 'overflow-x-hidden overflow-y-auto'}`}>
       <header className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6 flex-shrink-0">
         <div>
-          <h2 className="text-3xl lg:text-5xl font-black tracking-tighter mb-2 uppercase">{t('sidebar.contacts')}</h2>
+          <h2 className="text-2xl sm:text-3xl lg:text-5xl font-black tracking-tighter mb-2 uppercase">{t('sidebar.contacts')}</h2>
           <div className="flex flex-wrap items-center gap-3">
             <div className="px-3 py-1 bg-white/5 border border-white/10 rounded-full">
               <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold mono">Total: {appContacts.length} Perfiles</p>
@@ -2434,7 +2455,7 @@ function ContactsView({
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto no-scrollbar pb-10">
+      <div className="flex-1 overflow-y-auto no-scrollbar pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-10">
         {viewMode === 'map' ? (
           <div className="h-[600px] border border-white/5 rounded-3xl overflow-hidden bg-zinc-950/20 relative">
             <NetworkMapView 
@@ -2680,6 +2701,15 @@ export default function App() {
   const [expandedContact, setExpandedContact] = useState<Contact | null>(null);
   const [activeDetailTab, setActiveDetailTab] = useState<'briefing' | 'info' | 'timeline' | 'meeting-assistant'>('info');
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 640 : false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     if (expandedContact) {
@@ -2892,6 +2922,7 @@ export default function App() {
                   forceSelectedContactId={externalSelectedContactId}
                   setIsAddModalOpen={setIsAddModalOpen}
                   onEditContact={(c) => setContactToEdit(c)}
+                  isMobile={isMobile}
                 />
               </motion.div>
             )}
@@ -2986,16 +3017,32 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-xl bg-black/75"
+              className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-xl bg-black/75"
               onClick={() => setExpandedContact(null)}
             >
               <motion.div
-                initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                drag={isMobile ? "y" : false}
+                dragConstraints={{ top: 0, bottom: 300 }}
+                dragElastic={0.2}
+                onDragEnd={(_, info) => {
+                  if (isMobile && info.offset.y > 150) {
+                    setExpandedContact(null);
+                  }
+                }}
+                initial={isMobile ? { y: "100%", opacity: 0.5 } : { scale: 0.95, opacity: 0, y: 20 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
-                exit={{ scale: 0.95, opacity: 0, y: 20 }}
-                className="bg-zinc-950 border border-white/10 max-w-4xl w-full h-[85vh] rounded-[2.5rem] overflow-hidden flex flex-col shadow-[0_0_80px_rgba(212,119,44,0.15)]"
+                exit={isMobile ? { y: "100%", opacity: 0.5 } : { scale: 0.95, opacity: 0, y: 20 }}
+                transition={{ type: "spring", damping: 25, stiffness: 250 }}
+                className="bg-zinc-950 border-t sm:border border-white/10 max-w-4xl w-full h-[92vh] sm:h-[85vh] rounded-t-[2.5rem] sm:rounded-[2.5rem] overflow-hidden flex flex-col shadow-[0_0_80px_rgba(212,119,44,0.15)]"
                 onClick={e => e.stopPropagation()}
               >
+                {/* Drag Handle for mobile */}
+                {isMobile && (
+                  <div className="w-full h-8 flex items-center justify-center flex-shrink-0 bg-zinc-950/40 relative z-30 cursor-grab active:cursor-grabbing border-b border-white/5">
+                    <div className="w-12 h-1.5 bg-white/20 rounded-full" />
+                  </div>
+                )}
+
                 {/* Decorative Premium Cover Banner */}
                 <div className="relative h-36 bg-gradient-to-r from-zinc-900 via-zinc-800 to-zinc-900 border-b border-white/5 flex-shrink-0">
                   <div className="absolute inset-0 bg-grid opacity-20" />
@@ -3117,7 +3164,7 @@ export default function App() {
                 </div>
 
                 {/* Panel Dossier Content */}
-                <div className="flex-1 overflow-y-auto p-8 no-scrollbar bg-black/20">
+                <div className="flex-1 overflow-y-auto p-4 sm:p-8 no-scrollbar bg-black/20">
                   <AnimatePresence mode="wait">
                     {activeDetailTab === 'info' && (
                       <motion.div

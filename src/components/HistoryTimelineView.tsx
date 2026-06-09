@@ -147,10 +147,10 @@ export const HistoryTimelineView: React.FC<HistoryTimelineViewProps> = ({ onExpa
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-black/60 relative backdrop-blur-3xl">
-      <div className="px-6 md:px-10 lg:px-12 pt-6 md:pt-8 lg:pt-10 pb-6 border-b border-white/5 bg-zinc-950/40 relative z-10 shrink-0">
+      <div className="px-6 md:px-10 lg:px-12 pt-[calc(1.5rem+env(safe-area-inset-top))] md:pt-8 lg:pt-10 pb-6 border-b border-white/5 bg-zinc-950/40 relative z-10 shrink-0">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h2 className="text-3xl lg:text-5xl font-black tracking-tighter uppercase text-white mb-2">
+            <h2 className="text-2xl sm:text-3xl lg:text-5xl font-black tracking-tighter uppercase text-white mb-2">
               {t('history.title')}
             </h2>
             <p className="text-xs text-zinc-500 font-bold tracking-widest uppercase mono">
@@ -160,7 +160,7 @@ export const HistoryTimelineView: React.FC<HistoryTimelineViewProps> = ({ onExpa
           
           <button 
             onClick={fetchInteractions}
-            className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-white hover:bg-white/10 transition-all flex items-center gap-2"
+            className="w-full md:w-auto justify-center px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-white hover:bg-white/10 transition-all flex items-center gap-2"
           >
             {t('history.syncHistory')}
           </button>
@@ -217,7 +217,7 @@ export const HistoryTimelineView: React.FC<HistoryTimelineViewProps> = ({ onExpa
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 md:px-10 lg:px-12 py-6 md:py-8 lg:py-10 no-scrollbar relative">
+      <div className="flex-1 overflow-y-auto px-6 md:px-10 lg:px-12 py-6 md:py-8 lg:py-10 no-scrollbar relative pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-10">
         <AnimatePresence mode="wait">
           {loading ? (
             <motion.div 

@@ -117,7 +117,7 @@ export default function CalendarView({ onExpandContact, appContacts }: CalendarV
   };
 
   return (
-    <div className="p-8 h-full flex flex-col space-y-6 relative overflow-hidden bg-black/40 backdrop-blur-xl">
+    <div className="p-4 sm:p-8 h-full flex flex-col space-y-6 relative overflow-hidden bg-black/40 backdrop-blur-xl pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-8">
       {/* Toast Notification */}
       <AnimatePresence>
         {toastMessage && (
@@ -134,9 +134,9 @@ export default function CalendarView({ onExpandContact, appContacts }: CalendarV
       </AnimatePresence>
 
       {/* Header */}
-      <div className="flex justify-between items-center shrink-0">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center shrink-0 gap-4">
         <div>
-          <h2 className="text-3xl font-black text-white uppercase tracking-tight flex items-center gap-3">
+          <h2 className="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight flex items-center gap-3">
             <Calendar className="text-primary" size={28} />
             {t('calendar.title') || 'Calendario Inteligente'}
           </h2>
@@ -145,12 +145,12 @@ export default function CalendarView({ onExpandContact, appContacts }: CalendarV
           </p>
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex gap-3 w-full sm:w-auto">
           {status?.connected && (
             <button 
               onClick={handleSync}
               disabled={syncing}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs font-black uppercase tracking-wider hover:bg-white/10 transition-all"
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs font-black uppercase tracking-wider hover:bg-white/10 transition-all"
             >
               {syncing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
               {t('calendar.sync') || 'Sincronizar'}
@@ -158,7 +158,7 @@ export default function CalendarView({ onExpandContact, appContacts }: CalendarV
           )}
           <button 
             onClick={() => setShowConfig(!showConfig)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-white text-xs font-black uppercase tracking-wider hover:scale-105 active:scale-95 transition-all shadow-glow"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-white text-xs font-black uppercase tracking-wider hover:scale-105 active:scale-95 transition-all shadow-glow"
           >
             <Link size={14} />
             {status?.connected ? (t('calendar.manage') || 'Gestionar') : (t('calendar.connect') || 'Conectar')}
@@ -362,80 +362,169 @@ export default function CalendarView({ onExpandContact, appContacts }: CalendarV
 
             {/* AI Briefing Detail Panel */}
             <div className="relative">
-              {selectedMeeting ? (
-                <motion.div 
-                  key={selectedMeeting.id}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="premium-card p-6 space-y-6 sticky top-0"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <span className="text-[9px] font-black uppercase tracking-widest text-copper-light mono flex items-center gap-1.5">
-                        <Sparkles size={11} className="text-copper" />
-                        AI Pre-Meeting Prep
-                      </span>
-                      <h3 className="text-lg font-black text-white tracking-tight mt-1">{selectedMeeting.title}</h3>
-                    </div>
-                    <button 
-                      onClick={() => setSelectedMeeting(null)} 
-                      className="text-zinc-500 hover:text-white"
+              {/* Mobile Drawer (Only visible on mobile) */}
+              <AnimatePresence>
+                {selectedMeeting && (
+                  <div className="block lg:hidden">
+                    {/* Backdrop */}
+                    <motion.div 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="fixed inset-0 z-[150] backdrop-blur-md bg-black/60"
+                      onClick={() => setSelectedMeeting(null)}
+                    />
+                    {/* Drawer Content */}
+                    <motion.div
+                      initial={{ y: "100%" }}
+                      animate={{ y: 0 }}
+                      exit={{ y: "100%" }}
+                      transition={{ type: "spring", damping: 25, stiffness: 250 }}
+                      className="fixed bottom-0 left-0 right-0 z-[160] bg-zinc-950 border-t border-white/10 rounded-t-[2.5rem] p-6 space-y-6 max-h-[80vh] overflow-y-auto"
                     >
-                      <X size={16} />
-                    </button>
-                  </div>
-
-                  {/* Synced Attendees Intelligence List */}
-                  <div className="space-y-5">
-                    <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mono">Inteligencia de Participantes</h4>
-                    
-                    {selectedMeeting.attendees.map((attendee) => {
-                      // Find if this attendee is already a contact in CRM
-                      const matchedContact = appContacts.find(c => c.email === attendee.email || c.name.toLowerCase() === attendee.name.toLowerCase());
+                      <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-2" onClick={() => setSelectedMeeting(null)} />
                       
-                      const icebreaker = attendee.aiIcebreaker || matchedContact?.aiIcebreaker || matchedContact?.intelligence?.icebreaker;
-                      
-                      return (
-                        <div key={attendee.id} className="p-4 rounded-xl bg-zinc-950/40 border border-white/5 space-y-3">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-xs text-white">{attendee.name}</span>
-                                {matchedContact && (
-                                  <button 
-                                    onClick={() => onExpandContact(matchedContact)}
-                                    className="text-[9px] font-black text-primary hover:underline uppercase mono tracking-wider"
-                                  >
-                                    Ver Expediente
-                                  </button>
-                                )}
-                              </div>
-                              <span className="text-[10px] text-zinc-500 mt-0.5 block">{attendee.role || 'Participante'} @ {attendee.company || 'Externo'}</span>
-                            </div>
-                            <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-400 mono">
-                              Score: {attendee.relationshipScore || matchedContact?.relationshipScore || 50}%
-                            </span>
-                          </div>
-
-                          {icebreaker ? (
-                            <div className="pt-2 border-t border-white/5 space-y-1.5">
-                              <span className="text-[8px] font-black text-copper uppercase tracking-wider mono block">Rompehielo sugerido</span>
-                              <p className="text-xs text-zinc-300 italic leading-relaxed">"{icebreaker}"</p>
-                            </div>
-                          ) : (
-                            <p className="text-[10px] text-zinc-600 italic">No hay inteligencia cargada para este participante.</p>
-                          )}
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <span className="text-[9px] font-black uppercase tracking-widest text-copper-light mono flex items-center gap-1.5">
+                            <Sparkles size={11} className="text-copper" />
+                            AI Pre-Meeting Prep
+                          </span>
+                          <h3 className="text-lg font-black text-white tracking-tight mt-1">{selectedMeeting.title}</h3>
                         </div>
-                      );
-                    })}
+                        <button 
+                          onClick={() => setSelectedMeeting(null)} 
+                          className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-zinc-500 hover:text-white"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+
+                      {/* Synced Attendees Intelligence List */}
+                      <div className="space-y-5 pb-8">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mono">Inteligencia de Participantes</h4>
+                        
+                        {selectedMeeting.attendees.map((attendee) => {
+                          const matchedContact = appContacts.find(c => c.email === attendee.email || c.name.toLowerCase() === attendee.name.toLowerCase());
+                          const icebreaker = attendee.aiIcebreaker || matchedContact?.aiIcebreaker || matchedContact?.intelligence?.icebreaker;
+                          
+                          return (
+                            <div key={attendee.id} className="p-4 rounded-xl bg-zinc-950/40 border border-white/5 space-y-3">
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-bold text-xs text-white">{attendee.name}</span>
+                                    {matchedContact && (
+                                      <button 
+                                        onClick={() => {
+                                          onExpandContact(matchedContact);
+                                          setSelectedMeeting(null);
+                                        }}
+                                        className="text-[9px] font-black text-primary hover:underline uppercase mono tracking-wider"
+                                      >
+                                        Ver Expediente
+                                      </button>
+                                    )}
+                                  </div>
+                                  <span className="text-[10px] text-zinc-500 mt-0.5 block">{attendee.role || 'Participante'} @ {attendee.company || 'Externo'}</span>
+                                </div>
+                                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-400 mono">
+                                  Score: {attendee.relationshipScore || matchedContact?.relationshipScore || 50}%
+                                </span>
+                              </div>
+
+                              {icebreaker ? (
+                                <div className="pt-2 border-t border-white/5 space-y-1.5">
+                                  <span className="text-[8px] font-black text-copper uppercase tracking-wider mono block">Rompehielo sugerido</span>
+                                  <p className="text-xs text-zinc-300 italic leading-relaxed">"{icebreaker}"</p>
+                                </div>
+                              ) : (
+                                <p className="text-[10px] text-zinc-600 italic">No hay inteligencia cargada para este participante.</p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
                   </div>
-                </motion.div>
-              ) : (
-                <div className="h-64 border border-dashed border-white/5 rounded-2xl flex flex-col items-center justify-center text-center p-6 text-zinc-600">
-                  <Sparkles size={24} className="opacity-20 mb-3" />
-                  <p className="text-[10px] font-black uppercase tracking-widest">Selecciona una reunión para ver el reporte de IA</p>
-                </div>
-              )}
+                )}
+              </AnimatePresence>
+
+              {/* Desktop view */}
+              <div className="hidden lg:block">
+                {selectedMeeting ? (
+                  <motion.div 
+                    key={selectedMeeting.id}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="premium-card p-6 space-y-6 sticky top-0"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <span className="text-[9px] font-black uppercase tracking-widest text-copper-light mono flex items-center gap-1.5">
+                          <Sparkles size={11} className="text-copper" />
+                          AI Pre-Meeting Prep
+                        </span>
+                        <h3 className="text-lg font-black text-white tracking-tight mt-1">{selectedMeeting.title}</h3>
+                      </div>
+                      <button 
+                        onClick={() => setSelectedMeeting(null)} 
+                        className="text-zinc-500 hover:text-white"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+
+                    {/* Synced Attendees Intelligence List */}
+                    <div className="space-y-5">
+                      <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mono">Inteligencia de Participantes</h4>
+                      
+                      {selectedMeeting.attendees.map((attendee) => {
+                        const matchedContact = appContacts.find(c => c.email === attendee.email || c.name.toLowerCase() === attendee.name.toLowerCase());
+                        const icebreaker = attendee.aiIcebreaker || matchedContact?.aiIcebreaker || matchedContact?.intelligence?.icebreaker;
+                        
+                        return (
+                          <div key={attendee.id} className="p-4 rounded-xl bg-zinc-950/40 border border-white/5 space-y-3">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-xs text-white">{attendee.name}</span>
+                                  {matchedContact && (
+                                    <button 
+                                      onClick={() => onExpandContact(matchedContact)}
+                                      className="text-[9px] font-black text-primary hover:underline uppercase mono tracking-wider"
+                                    >
+                                      Ver Expediente
+                                    </button>
+                                  )}
+                                </div>
+                                <span className="text-[10px] text-zinc-500 mt-0.5 block">{attendee.role || 'Participante'} @ {attendee.company || 'Externo'}</span>
+                              </div>
+                              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-400 mono">
+                                Score: {attendee.relationshipScore || matchedContact?.relationshipScore || 50}%
+                              </span>
+                            </div>
+
+                            {icebreaker ? (
+                              <div className="pt-2 border-t border-white/5 space-y-1.5">
+                                <span className="text-[8px] font-black text-copper uppercase tracking-wider mono block">Rompehielo sugerido</span>
+                                <p className="text-xs text-zinc-300 italic leading-relaxed">"{icebreaker}"</p>
+                              </div>
+                            ) : (
+                              <p className="text-[10px] text-zinc-600 italic">No hay inteligencia cargada para este participante.</p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </motion.div>
+                ) : (
+                  <div className="h-64 border border-dashed border-white/5 rounded-2xl flex flex-col items-center justify-center text-center p-6 text-zinc-600">
+                    <Sparkles size={24} className="opacity-20 mb-3" />
+                    <p className="text-[10px] font-black uppercase tracking-widest">Selecciona una reunión para ver el reporte de IA</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}

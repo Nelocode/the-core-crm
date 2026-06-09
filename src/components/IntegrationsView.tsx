@@ -183,10 +183,10 @@ export default function IntegrationsView() {
   }
 
   return (
-    <div className="px-6 md:px-10 lg:px-12 py-6 md:py-8 lg:py-10 h-full flex flex-col space-y-6 lg:space-y-10 overflow-y-auto no-scrollbar pb-24">
+    <div className="px-6 md:px-10 lg:px-12 pt-[calc(1.5rem+env(safe-area-inset-top))] md:pt-8 lg:pt-10 pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-10 h-full flex flex-col space-y-6 lg:space-y-10 overflow-y-auto no-scrollbar">
       <header className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6 flex-shrink-0">
         <div>
-          <h2 className="text-3xl lg:text-5xl font-black tracking-tighter mb-2 uppercase">{t('sidebar.integrations')}</h2>
+          <h2 className="text-2xl sm:text-3xl lg:text-5xl font-black tracking-tighter mb-2 uppercase">{t('sidebar.integrations')}</h2>
           <div className="px-3 py-1 bg-white/5 border border-white/10 rounded-full inline-block">
             <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold mono">
               {t('integrations.subtitle')}
